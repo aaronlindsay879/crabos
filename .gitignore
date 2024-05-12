@@ -1,0 +1,4 @@
+/target
+**/*/target
+/.vscode
+OVMF_VARS.fd

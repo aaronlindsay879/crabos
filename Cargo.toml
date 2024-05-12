@@ -1,0 +1,18 @@
+[workspace]
+members = [
+    "crabstd",
+    "drivers/fs/initrd",
+    "drivers/storage/ram",
+    "kernel",
+    "multiboot",
+    "x86_64",
+]
+resolver = "2"
+
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+strip = true
