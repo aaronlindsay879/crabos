@@ -82,6 +82,7 @@ pub struct File {
 }
 
 impl File {
+    /// Constructs a new file from the given path, returning None if the file does not exist.
     pub fn new(path: impl AsRef<Path>) -> Option<Self> {
         path.as_ref().open()
     }
@@ -97,19 +98,23 @@ impl File {
         }
     }
 
+    /// Reads the file into the given buffer, returning the number of bytes read
     pub fn read(&mut self, buffer: &mut [u8]) -> usize {
         syscall::read(self, buffer)
     }
 
+    /// Gets path of the file.
     pub fn path(&self) -> &Path {
         self.path.borrow()
     }
 
+    /// Gets current offset into the file.
     pub fn offset(&self) -> usize {
         self.offset
     }
 }
 
+/// Trait representing an arbitrary file system, such as initrd or ext4.
 pub trait FileSystem {
     /// Performs any operations needed to open the file,
     /// and then returns a bool indicated if the file exists.
@@ -119,6 +124,9 @@ pub trait FileSystem {
     fn read_file(&self, file: &File, buffer: &mut [u8]) -> usize;
 }
 
+/// Trait representing an arbitrary storage device, such as ram or AHCI.
 pub trait StorageDevice {
+    /// Reads `count` bytes from the given `start` address into the provided buffer,
+    /// returning number of bytes read.
     fn read(&mut self, start: usize, count: usize, buf: &mut [u8]) -> usize;
 }

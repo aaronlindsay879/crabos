@@ -32,9 +32,9 @@ impl<T: Default + Copy> HeaderTagValue<T> {
 pub struct MultibootHeader {
     arch: u32,
     out: [u8; Self::SIZE as usize],
-    out_cursor: Cursor,
+    out_cursor: Cursor<'static>,
     buffer: [u8; Self::SIZE as usize],
-    buffer_cursor: Cursor,
+    buffer_cursor: Cursor<'static>,
 }
 
 impl MultibootHeader {

@@ -5,12 +5,15 @@ use core::{
     sync::atomic::{AtomicBool, Ordering},
 };
 
+/// Spin-lock mutex, allowing shared access to a common resource.
+/// This should only be used when locks are not going to be held for a long time.
 pub struct Mutex<T: ?Sized> {
     lock: AtomicBool,
     data: UnsafeCell<T>,
 }
 
 impl<T> Mutex<T> {
+    /// Constructs a new mutex holding the given data.
     pub const fn new(data: T) -> Self {
         Self {
             lock: AtomicBool::new(false),
@@ -18,11 +21,14 @@ impl<T> Mutex<T> {
         }
     }
 
+    /// Checks if the mutex is locked.
     pub fn is_locked(&self) -> bool {
         self.lock.load(Ordering::Relaxed)
     }
 
+    /// Locks the mutex, returning a guard which can be used to access the underlying data.
     pub fn lock(&self) -> MutexGuard<T> {
+        // spin loop until lock released
         while self
             .lock
             .compare_exchange_weak(false, true, Ordering::Acquire, Ordering::Relaxed)

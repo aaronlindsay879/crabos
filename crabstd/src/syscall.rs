@@ -2,10 +2,15 @@ use core::arch::asm;
 
 use crate::fs::{File, Path};
 
+/// Index of `no_function` syscall
 pub const NO_FUNCTION: usize = 0;
+/// Index of `open` syscall
 pub const OPEN: usize = 1;
+/// Index of `read` syscall
 pub const READ: usize = 2;
 
+/// Helper macro to generate a syscall with the provided opcode and registers,
+/// making sure to pass arguments in the correct registers
 macro_rules! syscall {
     ($opcode:expr) => {
         asm!("int 0x80", in("eax") $opcode)
@@ -46,6 +51,7 @@ macro_rules! syscall {
     };
 }
 
+/// Performs an `open` syscall, opening a file with the given path.
 pub fn open(path: &Path) -> Option<File> {
     let mut is_valid = false;
     unsafe {
@@ -63,6 +69,8 @@ pub fn open(path: &Path) -> Option<File> {
     }
 }
 
+/// Performs a `read` syscall, reading data from the given file to the provided buffer,
+/// returning the number of bytes read.
 pub fn read(file: &mut File, buffer: &mut [u8]) -> usize {
     let mut bytes_read: usize = 0;
 

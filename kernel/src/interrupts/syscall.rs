@@ -45,7 +45,7 @@ macro_rules! syscall_table {
         #[used]
         #[no_mangle]
         static SYSCALL_TABLE: [&'static (); 256] = {
-            let mut table = [unsafe { &*(_no_function as *const ()) }; 256];
+            let mut table = [unsafe { &*(no_function as *const ()) }; 256];
 
             $(
                 table[$number] = unsafe { &*($function as *const ()) };
@@ -57,13 +57,13 @@ macro_rules! syscall_table {
 }
 
 syscall_table!(
-    syscalls::NO_FUNCTION => _no_function,
-    syscalls::OPEN => _open,
-    syscalls::READ => _read,
+    syscalls::NO_FUNCTION => no_function,
+    syscalls::OPEN => open,
+    syscalls::READ => read,
 );
 
 #[no_mangle]
-extern "x86-interrupt" fn _no_function() {
+extern "x86-interrupt" fn no_function() {
     let eax: usize;
     unsafe {
         asm!("mov {:e}, eax", out(reg) eax);
@@ -73,7 +73,7 @@ extern "x86-interrupt" fn _no_function() {
 }
 
 #[no_mangle]
-extern "x86-interrupt" fn _read() {
+extern "x86-interrupt" fn read() {
     let file: *const File;
     let buffer: *mut u8;
     let buffer_len: usize;
@@ -106,7 +106,7 @@ extern "x86-interrupt" fn _read() {
 }
 
 #[no_mangle]
-extern "x86-interrupt" fn _open() {
+extern "x86-interrupt" fn open() {
     let path: *const u8;
     let path_len: usize;
     let is_valid: *mut bool;
