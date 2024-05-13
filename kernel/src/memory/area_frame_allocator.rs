@@ -61,7 +61,7 @@ impl FrameAllocator for AreaFrameAllocator {
     }
 
     fn deallocate_frame(&mut self, _frame: Frame) {
-        unimplemented!()
+        // do nothing, this is a simple bump allocator
     }
 }
 

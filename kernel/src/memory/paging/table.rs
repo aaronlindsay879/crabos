@@ -62,6 +62,11 @@ impl<L: TableLevel> Table<L> {
             entry.set_unused();
         }
     }
+
+    /// Checks if the page table is empty by iterating over each entry
+    pub fn is_empty(&self) -> bool {
+        self.entries.iter().all(Entry::is_unused)
+    }
 }
 
 impl<L: HierarchicalLevel> Table<L> {
@@ -104,6 +109,11 @@ impl<L: HierarchicalLevel> Table<L> {
 
             // create, set, and zero a new frame
             let frame = allocator.allocate_frame().expect("no available frames");
+
+            log::trace!(
+                "allocating new {} table at frame {frame:?}",
+                core::any::type_name::<L::NextLevel>()
+            );
             self.entries[index].set(frame, EntryFlags::PRESENT | EntryFlags::WRITABLE);
             self.next_table_mut(index).unwrap().zero();
         }

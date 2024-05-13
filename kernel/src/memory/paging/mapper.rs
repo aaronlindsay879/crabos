@@ -121,25 +121,58 @@ impl Mapper {
     }
 
     /// Unmaps a given page
-    pub fn unmap<A>(&mut self, page: Page, allocator: &mut A)
+    pub fn unmap<A>(&mut self, page: Page, allocator: &mut A, free_unused_tables: bool)
     where
         A: FrameAllocator,
     {
         assert!(self.translate(page.start_address()).is_some());
 
-        let p1 = self
+        let p3 = self
             .p4_mut()
             .next_table_mut(page.p4_index())
-            .and_then(|p3| p3.next_table_mut(page.p3_index()))
-            .and_then(|p2| p2.next_table_mut(page.p2_index()))
+            .expect("mapping code does not support huge pages");
+        let p2 = p3
+            .next_table_mut(page.p3_index())
+            .expect("mapping code does not support huge pages");
+        let p1 = p2
+            .next_table_mut(page.p2_index())
             .expect("mapping code does not support huge pages");
 
         let frame = p1[page.p1_index()].pointed_frame().unwrap();
         p1[page.p1_index()].set_unused();
 
         invalidate_address(frame.start_address());
+        allocator.deallocate_frame(frame);
 
-        // TODO free p(1,2,3) table if empty
-        //allocator.deallocate_frame(frame);
+        // TODO: remove repeated code
+        if free_unused_tables {
+            if p1.is_empty() {
+                let p1_frame = p2[page.p2_index()].pointed_frame().unwrap();
+                p2[page.p2_index()].set_unused();
+
+                log::trace!("freeing unused p1 table at frame {p1_frame:?}");
+
+                invalidate_address(p1_frame.start_address());
+                allocator.deallocate_frame(p1_frame);
+            }
+
+            if p2.is_empty() {
+                let p2_frame = p3[page.p3_index()].pointed_frame().unwrap();
+                p3[page.p3_index()].set_unused();
+
+                log::trace!("freeing unused p2 table at frame {p2_frame:?}");
+                invalidate_address(p2_frame.start_address());
+                allocator.deallocate_frame(p2_frame);
+            }
+
+            if p3.is_empty() {
+                let p3_frame = self.p4()[page.p4_index()].pointed_frame().unwrap();
+                self.p4_mut()[page.p4_index()].set_unused();
+
+                log::trace!("freeing unused p3 table at frame {p3_frame:?}");
+                invalidate_address(p3_frame.start_address());
+                allocator.deallocate_frame(p3_frame);
+            }
+        }
     }
 }

@@ -185,7 +185,7 @@ pub fn remap_kernel<A: FrameAllocator>(allocator: &mut A, bootinfo: &BootInfo) -
 
     // now set old p4 table as a guard page to prevent stack overflows
     let old_p4_page = Page::containing_address(old_table.p4_frame.start_address());
-    active_table.unmap(old_p4_page, allocator);
+    active_table.unmap(old_p4_page, allocator, true);
     log::trace!("\t\t* guard page at {:#X}", old_p4_page.start_address());
 
     log::info!("\t* kernel remapped");

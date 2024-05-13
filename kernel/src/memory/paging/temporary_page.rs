@@ -33,7 +33,9 @@ impl TemporaryPage {
 
     /// Unmaps the temporary page in the active table.
     pub fn unmap(&mut self, active_table: &mut ActivePageTable) {
-        active_table.unmap(self.page, &mut self.allocator);
+        // dont want to free unused tables here since we can accidentally "steal" tables
+        // from other allocators and overflow buffer
+        active_table.unmap(self.page, &mut self.allocator, false);
     }
 
     /// Maps the temporary page to the given page table frame in the active
