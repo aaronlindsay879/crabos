@@ -68,7 +68,7 @@ pub fn init(bootinfo: &BootInfo, initrd: &Module) {
     log::info!(
         "mapping heap at addr: {:#X}, size: {:#X}",
         HEAP_START,
-        HEAP_START + HEAP_SIZE - 1
+        HEAP_SIZE
     );
 }
 
