@@ -1,7 +1,7 @@
 # Crabos
 Simple OS written (mostly) in rust.
 
-Use the provided makefile to run, with `uefi` and `bios` targets for running in `uefi` and `bios` mode.
+Use the provided makefile to run.
 
 Project structure:
 * [crabstd](crabstd) - standard library

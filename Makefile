@@ -19,18 +19,11 @@ INITRD_FILE := target/isofiles/boot/crabos.initrd
 LIB_FILE := target/x86_64-unknown-crabos/release/libcrabos.a
 ISO_FILE := target/crabos.iso
 
-QEMU_BASE := qemu-system-x86_64 \
+run: $(ISO_FILE)
+	qemu-system-x86_64 \
 				-drive file=$(ISO_FILE),format=raw \
 				-display gtk,show-tabs=on \
 				-serial stdio
-
-bios: $(ISO_FILE)
-	$(QEMU_BASE)
-
-uefi: $(ISO_FILE)
-	$(QEMU_BASE) \
-		-drive if=pflash,format=raw,unit=0,file=/usr/share/edk2-ovmf/x64/OVMF_CODE.fd,readonly=on \
-		-drive if=pflash,format=raw,unit=1,file=OVMF_VARS.fd
 
 clean: 
 	cargo clean
