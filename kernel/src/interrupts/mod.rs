@@ -97,11 +97,16 @@ extern "x86-interrupt" fn general_protection_fault_handler(
     x86_64::hlt_loop();
 }
 
-/// Stub interrupt handler that simply jumps to the correct syscall based on the value in `eax`
+/// Stub interrupt handler that simply jumps to the correct syscall based on the value in `rax`
 #[naked]
 extern "x86-interrupt" fn syscall_handler(_stack_frame: ExceptionStackFrame) {
+    // make sure to mask rax to prevent jumping outside the syscall table
     unsafe {
-        asm!("jmp [SYSCALL_TABLE + eax*8]", options(noreturn));
+        asm!(
+            "and rax, 0xFF",
+            "jmp [SYSCALL_TABLE + rax*8]",
+            options(noreturn)
+        );
     }
 }
 

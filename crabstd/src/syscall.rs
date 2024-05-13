@@ -13,19 +13,19 @@ pub const READ: usize = 2;
 /// making sure to pass arguments in the correct registers
 macro_rules! syscall {
     ($opcode:expr) => {
-        asm!("int 0x80", in("eax") $opcode)
+        asm!("int 0x80", in("rax") $opcode)
     };
     ($opcode:expr; $arg1:expr) => {
         asm!(
             "int 0x80",
-            in("eax") $opcode,
+            in("rax") $opcode,
             in("rdi") $arg1
         )
     };
     ($opcode:expr; $arg1:expr, $arg2:expr) => {
         asm!(
             "int 0x80",
-            in("eax") $opcode,
+            in("rax") $opcode,
             in("rdi") $arg1,
             in("rsi") $arg2,
         )
@@ -33,7 +33,7 @@ macro_rules! syscall {
     ($opcode:expr; $arg1:expr, $arg2:expr, $arg3:expr) => {
         asm!(
             "int 0x80",
-            in("eax") $opcode,
+            in("rax") $opcode,
             in("rdi") $arg1,
             in("rsi") $arg2,
             in("rdx") $arg3,
@@ -42,7 +42,7 @@ macro_rules! syscall {
     ($opcode:expr; $arg1:expr, $arg2:expr, $arg3:expr, $arg4:expr) => {
         asm!(
             "int 0x80",
-            in("eax") $opcode,
+            in("rax") $opcode,
             in("rdi") $arg1,
             in("rsi") $arg2,
             in("rdx") $arg3,

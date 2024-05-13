@@ -64,12 +64,12 @@ syscall_table!(
 
 #[no_mangle]
 extern "x86-interrupt" fn no_function() {
-    let eax: usize;
+    let rax: usize;
     unsafe {
-        asm!("mov {:e}, eax", out(reg) eax);
+        asm!("mov {:e}, rax", out(reg) rax);
     }
 
-    println!("syscall called with invalid code {eax}");
+    println!("syscall called with invalid code {rax}");
 }
 
 #[no_mangle]
