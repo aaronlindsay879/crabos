@@ -25,12 +25,25 @@ impl Writer {
     /// Selects the correct writer type based in information returned by multiboot
     pub fn from_bootinfo(bootinfo: &BootInfo) -> Option<Self> {
         let framebuffer_info = bootinfo.framebuffer_info.unwrap();
+        log::trace!("\t* framebuffer type: {}", framebuffer_info.buffer_type);
+        log::trace!("\t* framebuffer bits per pixel: {}", framebuffer_info.bpp);
+        log::trace!(
+            "\t* framebuffer size: {}x{}",
+            framebuffer_info.width,
+            framebuffer_info.height
+        );
 
         match framebuffer_info.buffer_type {
-            0 | 1 => Some(Writer::Framebuffer(FrameBufferWriter::from_framebuffer(
-                framebuffer_info,
-            ))),
-            2 => Some(Writer::Textbuffer(TextBufferWriter::new())),
+            0 | 1 => {
+                log::trace!("\t* initialising pixel based framebuffer");
+                Some(Writer::Framebuffer(FrameBufferWriter::from_framebuffer(
+                    framebuffer_info,
+                )))
+            }
+            2 => {
+                log::trace!("\t* initialising pixel based framebuffer");
+                Some(Writer::Textbuffer(TextBufferWriter::new()))
+            }
             _ => None,
         }
     }

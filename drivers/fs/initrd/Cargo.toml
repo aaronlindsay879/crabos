@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 crabstd = { path = "../../../crabstd" }
 ram = { path = "../../storage/ram" }
+log = "0.4.21"

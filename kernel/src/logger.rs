@@ -26,7 +26,12 @@ impl Log for Logger {
 
     fn log(&self, record: &log::Record) {
         if self.enabled(record.metadata()) {
-            serial_println!("{:>5} | {}", record.level(), record.args());
+            serial_println!(
+                "{:>5} | {:>30} | {}",
+                record.level(),
+                record.module_path().unwrap(),
+                record.args()
+            );
         }
     }
 

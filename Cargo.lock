@@ -39,6 +39,7 @@ name = "initrd"
 version = "0.1.0"
 dependencies = [
  "crabstd",
+ "log",
  "ram",
 ]
 

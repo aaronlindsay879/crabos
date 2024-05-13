@@ -1,4 +1,4 @@
-use core::arch::asm;
+use core::{arch::asm, ops::Deref};
 
 use crabstd::{
     fs::{File, FileSystem, Path},
@@ -85,9 +85,9 @@ extern "x86-interrupt" fn read() {
     let buffer = unsafe { core::slice::from_raw_parts_mut(buffer, buffer_len) };
 
     log::info!("read syscall called");
-    log::trace!("\t file: {file:?}");
+    log::trace!("\t* file: {file:?}");
     log::trace!(
-        "\t buffer addr: {:#X}, buffer len: {:#X}",
+        "\t* buffer addr: {:#X}, buffer len: {:#X}",
         buffer.as_ptr() as usize,
         buffer.len()
     );
@@ -101,7 +101,11 @@ extern "x86-interrupt" fn read() {
             .unwrap()
             .read_file(file, buffer),
         _ => {
-            log::warn!("attempted to read from invalid device");
+            log::warn!(
+                "attempted to read from invalid device `{}`, path `{}`",
+                device,
+                file.path().deref()
+            );
             0
         }
     };
@@ -123,7 +127,7 @@ extern "x86-interrupt" fn open() {
 
     let path = Path::new(unsafe { core::str::from_raw_parts(path, path_len) });
     log::info!("open syscall called");
-    log::trace!("\t path: {path:?}");
+    log::trace!("\t* path: {path:?}");
 
     let (device, path) = path.device_path().unwrap();
 
@@ -134,7 +138,11 @@ extern "x86-interrupt" fn open() {
             .unwrap()
             .open_file(Path::new(path)),
         _ => {
-            log::warn!("attempted to open path on invalid device");
+            log::warn!(
+                "attempted to open path `{}` on invalid device `{}`",
+                path,
+                device,
+            );
             false
         }
     };
