@@ -3,6 +3,8 @@ use core::{borrow::Borrow, ops::Deref};
 
 use super::syscall;
 
+/// Wrapper type for [str] which represents a path of the form
+/// {device}//{path}, where {device} can be omitted to mean default device
 #[derive(PartialEq, Eq, Debug)]
 #[repr(C)]
 pub struct Path {
@@ -10,22 +12,27 @@ pub struct Path {
 }
 
 impl Path {
+    /// Constructs path from a given str
     pub fn new(path: &str) -> &Self {
         unsafe { &*(path as *const str as *const Path) }
     }
 
+    /// Opens the file at the given path
     pub fn open(&self) -> Option<File> {
         syscall::open(self)
     }
 
+    /// Returns a tuple of device and path
     pub fn device_path(&self) -> Option<(&str, &str)> {
         self.split_once("//")
     }
 
+    /// Returns the device section of path
     pub fn device(&self) -> Option<&str> {
         self.device_path().unzip().0
     }
 
+    /// Returns the path section of path
     pub fn path(&self) -> Option<&str> {
         self.device_path().unzip().1
     }
@@ -61,6 +68,7 @@ impl ToOwned for Path {
     }
 }
 
+/// Owned version of [Path], uses [String] instead of [str]
 #[derive(PartialEq, Eq, Debug)]
 #[repr(C)]
 pub struct PathBuf {
