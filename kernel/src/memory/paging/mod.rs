@@ -148,14 +148,11 @@ pub fn remap_kernel<A: FrameAllocator>(allocator: &mut A, bootinfo: &BootInfo) -
                 section.addr as usize % PAGE_SIZE == 0,
                 "sections need to be page aligned"
             );
-
-            log::info!(
-                "\t\t* mapping kernel section {:?} at addr: {:#X}, size: {:#X} ({:#X}-{:#X})",
-                section.name(string_header),
-                section.addr,
-                section.size,
-                section.addr,
-                section.addr + section.size
+            super::log_mapping!(
+                "\t\t* mapping kernel section {:?}",
+                start: section.addr,
+                len: section.size,
+                section.name(string_header)
             );
 
             let flags = EntryFlags::from_elf_section_flags(section);
@@ -171,12 +168,10 @@ pub fn remap_kernel<A: FrameAllocator>(allocator: &mut A, bootinfo: &BootInfo) -
         // also map multiboot info here, since held reference needs to stay valid
         let multiboot_start = Frame::containing_address(bootinfo.addr);
         let multiboot_end = Frame::containing_address(bootinfo.addr + bootinfo.total_size - 1);
-        log::info!(
-            "\t\t* mapping multiboot info at addr: {:#X}, size: {:#X} ({:#X}-{:#X})",
-            bootinfo.addr,
-            bootinfo.total_size,
-            bootinfo.addr,
-            bootinfo.addr + bootinfo.total_size
+        super::log_mapping!(
+            "\t\t* mapping multiboot info",
+            start: bootinfo.addr,
+            len: bootinfo.total_size
         );
 
         for frame in Frame::range_inclusive(multiboot_start, multiboot_end) {

@@ -20,12 +20,10 @@ pub(super) fn map_framebuffer<A: FrameAllocator>(
     let buffer_start = framebuffer_info.buffer_addr as usize;
     let buffer_end = buffer_start + (framebuffer_info.pitch * framebuffer_info.height) as usize;
 
-    log::info!(
-        "\t* mapping framebuffer at addr: {:#X}, size: {:#X} ({:#X}-{:#X})",
-        buffer_start,
-        buffer_end - buffer_start,
-        buffer_start,
-        buffer_end
+    super::log_mapping!(
+        "\t* mapping framebuffer",
+        start: buffer_start,
+        end: buffer_end
     );
 
     for frame in Frame::range_inclusive(
@@ -54,12 +52,10 @@ pub(super) fn map_initrd<A: FrameAllocator>(
 
     let initrd_start_page = Page::containing_address(initrd_start);
     let initrd_end_page = Page::containing_address(initrd_end);
-    log::info!(
-        "\t* mapping initrd at addr: {:#X}, size: {:#X} ({:#X}-{:#X})",
-        initrd_start,
-        initrd_len,
-        initrd_start,
-        initrd_end
+    super::log_mapping!(
+        "\t* mapping initrd",
+        start: initrd_start,
+        end: initrd_end
     );
 
     for page in Page::range_inclusive(initrd_start_page, initrd_end_page) {
@@ -79,12 +75,10 @@ pub(super) fn map_heap<A: FrameAllocator>(
 ) {
     let heap_start_page = Page::containing_address(HEAP_START);
     let heap_end_page = Page::containing_address(HEAP_START + HEAP_SIZE - 1);
-    log::info!(
-        "\t* mapping heap at addr: {:#X}, size: {:#X} ({:#X}-{:#X})",
-        HEAP_START,
-        HEAP_SIZE,
-        HEAP_START,
-        HEAP_START + HEAP_SIZE
+    super::log_mapping!(
+        "\t* mapping heap",
+        start: HEAP_START,
+        len: HEAP_SIZE
     );
 
     for page in Page::range_inclusive(heap_start_page, heap_end_page) {

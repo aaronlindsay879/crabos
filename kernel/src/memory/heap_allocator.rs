@@ -27,7 +27,7 @@ unsafe impl GlobalAlloc for BumpAllocator {
         loop {
             // load current state of the `next` field
             let current_next = self.next.load(Ordering::Relaxed);
-            let alloc_start = align_up(current_next, layout.align());
+            let alloc_start = super::align_up(current_next, layout.align());
             let alloc_end = alloc_start.saturating_add(layout.size());
 
             if alloc_end <= self.heap_end {
@@ -54,22 +54,4 @@ unsafe impl GlobalAlloc for BumpAllocator {
     unsafe fn dealloc(&self, _ptr: *mut u8, _layout: core::alloc::Layout) {
         // do nothing
     }
-}
-
-/// Align downwards - returns the greatest _x_ with alignment `align`
-/// such that _x_ <= addr. `align` must be power of 2
-pub fn align_down(addr: usize, align: usize) -> usize {
-    if align.is_power_of_two() {
-        addr & !(align - 1)
-    } else if align == 0 {
-        addr
-    } else {
-        panic!("`align` must be power of two")
-    }
-}
-
-/// Align upwards - returns the smallest _x_ with alignment `align`
-/// such that _x_ >= addr. `align` must be power of 2
-pub fn align_up(addr: usize, align: usize) -> usize {
-    align_down(addr + align - 1, align)
 }

@@ -12,6 +12,24 @@ use x86_64::structures::Frame;
 
 use crate::BootInfo;
 
+macro_rules! log_mapping {
+    ($string:expr, start: $start:expr, end: $end:expr $(, $args:expr)*) => {
+        log::info!(
+            concat!($string, " at addr: {:#X}, size: {:#X} ({:#X}-{:#X})"),
+            $($args,)*
+            $start,
+            $end - $start,
+            crate::memory::align_down($start as usize, crate::memory::PAGE_SIZE),
+            crate::memory::align_up($end as usize, crate::memory::PAGE_SIZE),
+        );
+    };
+    ($string:expr, start: $start:expr, len: $len:expr $(, $args:expr)*) => {
+        crate::memory::log_mapping!($string, start: $start, end: ($start + $len) $(, $args)*)
+    };
+}
+
+use log_mapping;
+
 /// Size of a page in bytes
 pub const PAGE_SIZE: usize = 4096;
 
@@ -22,6 +40,24 @@ pub trait FrameAllocator {
     /// Frees a given frame
     #[allow(unused)]
     fn deallocate_frame(&mut self, frame: Frame);
+}
+
+/// Align downwards - returns the greatest _x_ with alignment `align`
+/// such that _x_ <= addr. `align` must be power of 2
+pub fn align_down(addr: usize, align: usize) -> usize {
+    if align.is_power_of_two() {
+        addr & !(align - 1)
+    } else if align == 0 {
+        addr
+    } else {
+        panic!("`align` must be power of two")
+    }
+}
+
+/// Align upwards - returns the smallest _x_ with alignment `align`
+/// such that _x_ >= addr. `align` must be power of 2
+pub fn align_up(addr: usize, align: usize) -> usize {
+    align_down(addr + align - 1, align)
 }
 
 static INIT_CALLED: AtomicBool = AtomicBool::new(false);
