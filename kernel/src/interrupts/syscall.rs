@@ -66,7 +66,7 @@ syscall_table!(
 extern "x86-interrupt" fn no_function() {
     let rax: usize;
     unsafe {
-        asm!("mov {:e}, rax", out(reg) rax);
+        asm!("mov {}, rax", out(reg) rax);
     }
 
     println!("syscall called with invalid code {rax}");
