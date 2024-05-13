@@ -19,8 +19,9 @@ impl Frame {
         self.number * PAGE_SIZE
     }
 
-    /// Private clone method since should not be a part of the public api
-    pub fn clone(&self) -> Frame {
+    /// # Safety
+    /// Returned frame should not be used to break memory safety, such as by attempting to free it twice.
+    pub unsafe fn clone(&self) -> Frame {
         Frame {
             number: self.number,
         }
@@ -41,7 +42,7 @@ impl Iterator for FrameIter {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.start <= self.end {
-            let frame = self.start.clone();
+            let frame = unsafe { self.start.clone() };
             self.start.number += 1;
             Some(frame)
         } else {

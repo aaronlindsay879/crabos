@@ -13,7 +13,7 @@ impl Page {
     /// Returns the page that contains the specified address
     pub fn containing_address(address: VirtualAddress) -> Page {
         assert!(
-            address < 0x0000_8000_0000_0000 || address >= 0xFFFF_8000_0000_0000,
+            !(0x0000_8000_0000_0000..0xFFFF_8000_0000_0000).contains(&address),
             "invalid address: 0x{:x}",
             address
         );
@@ -44,7 +44,9 @@ impl Page {
     }
 
     /// Returns index into p1 table
+    #[allow(clippy::identity_op)]
     pub fn p1_index(&self) -> usize {
+        // identity operation is allowed because it means this matches the pattern of other index functions
         (self.number >> 0) & 0o777
     }
 
@@ -63,7 +65,7 @@ impl Iterator for PageIter {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.start <= self.end {
-            let page = self.start.clone();
+            let page = self.start;
             self.start.number += 1;
             Some(page)
         } else {

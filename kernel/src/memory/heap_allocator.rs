@@ -1,7 +1,7 @@
 use alloc::alloc::GlobalAlloc;
 use core::sync::atomic::{AtomicUsize, Ordering};
 
-pub const HEAP_START: usize = 0o_000_001_000_000_0000;
+pub const HEAP_START: usize = 0x40000000;
 pub const HEAP_SIZE: usize = 100 * 1024; // 100 KiB
 
 /// A simple allocator that allocates memory linearly and ignores freed memory.

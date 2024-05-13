@@ -14,8 +14,8 @@ pub struct TaskStateSegment {
     pub base_addr: u16,
 }
 
-impl TaskStateSegment {
-    pub fn new() -> Self {
+impl Default for TaskStateSegment {
+    fn default() -> Self {
         Self {
             privilege_stack_table: [0; 3],
             interrupt_stack_table: [0; 7],

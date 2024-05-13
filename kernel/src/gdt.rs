@@ -2,7 +2,6 @@ use core::ptr::addr_of;
 
 use lazy_static::lazy_static;
 use x86_64::{
-    load_tss,
     segment_selector::SegmentSelector,
     structures::{Descriptor, GlobalDescriptorTable, TaskStateSegment},
 };
@@ -11,22 +10,21 @@ pub const DOUBLE_FAULT_IST_INDEX: u16 = 0;
 
 lazy_static! {
     static ref TSS: TaskStateSegment = {
-        let mut tss = TaskStateSegment::new();
+        let mut tss = TaskStateSegment::default();
 
         tss.interrupt_stack_table[DOUBLE_FAULT_IST_INDEX as usize] = {
             const STACK_SIZE: usize = 4096 * 5;
             static mut STACK: [u8; STACK_SIZE] = [0; STACK_SIZE];
 
             let stack_start = unsafe { addr_of!(STACK) as usize };
-            let stack_end = stack_start + STACK_SIZE;
 
-            stack_end
+            stack_start + STACK_SIZE
         };
 
         tss
     };
     static ref GDT: (GlobalDescriptorTable, Selectors) = {
-        let mut gdt = GlobalDescriptorTable::new();
+        let mut gdt = GlobalDescriptorTable::default();
 
         let code_selector = gdt.add_entry(Descriptor::kernel_code_segment());
         let data_selector = gdt.add_entry(Descriptor::kernel_data_segment());
@@ -53,6 +51,6 @@ pub fn init() {
     unsafe {
         GDT.1.code_selector.write_cs();
         GDT.1.data_selector.write_ss();
-        load_tss(GDT.1.tss_selector);
+        GDT.1.tss_selector.load_tss();
     }
 }

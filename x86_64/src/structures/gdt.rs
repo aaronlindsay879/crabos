@@ -20,14 +20,16 @@ pub struct GlobalDescriptorTable {
     pub(crate) len: usize,
 }
 
-impl GlobalDescriptorTable {
-    pub fn new() -> Self {
+impl Default for GlobalDescriptorTable {
+    fn default() -> Self {
         Self {
             table: [const { GdtEntry::new(0) }; 8],
             len: 1,
         }
     }
+}
 
+impl GlobalDescriptorTable {
     pub fn add_entry(&mut self, entry: Descriptor) -> SegmentSelector {
         let index = match entry {
             Descriptor::UserSegment(value) => {
@@ -61,7 +63,7 @@ impl GlobalDescriptorTable {
     }
 
     pub fn load(&'static self) {
-        let dtr = self.into_dtr();
+        let dtr = self.as_dtr();
 
         unsafe {
             dtr.load_gdt();

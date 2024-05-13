@@ -22,6 +22,9 @@ impl CR3 {
     }
 
     /// Writes the provided frame and flags to CR3 register
+    ///
+    /// # Safety
+    /// `frame` and `flags` must be valid to write to `CR3`.
     pub unsafe fn write(frame: Frame, flags: u16) {
         let addr = frame.start_address();
         let val = addr as u64 | flags as u64;

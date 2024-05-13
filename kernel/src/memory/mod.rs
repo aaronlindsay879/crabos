@@ -46,7 +46,7 @@ pub fn init(bootinfo: &BootInfo, initrd: &Module) {
         bootinfo.memory_map.unwrap().entries,
     );
 
-    let mut active_table = remap_kernel(&mut frame_allocator, &bootinfo, initrd);
+    let mut active_table = remap_kernel(&mut frame_allocator, bootinfo, initrd);
 
     let heap_start_page = Page::containing_address(HEAP_START);
     let heap_end_page = Page::containing_address(HEAP_START + HEAP_SIZE - 1);

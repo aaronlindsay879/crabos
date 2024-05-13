@@ -27,7 +27,7 @@ impl Header {
 
         string
             .and_then(|string| string.to_str().ok())
-            .map(|string| Path::new(string))
+            .map(Path::new)
     }
 }
 
@@ -43,6 +43,9 @@ impl Initrd<Ram> {
     /// Specialised implementation for when initrd is in ram to avoid copying data to a buffer while reading.
     /// While those copies are needed for generic storage devices, there's no need to copy data if it's
     /// already in ram.
+    ///
+    /// # Safety
+    /// Memory from `start` to `start + len` must be valid to read.
     pub unsafe fn new_ram(start: usize, len: usize) -> Option<Self> {
         Self::new_shared(start as *const _, len)
     }
@@ -82,7 +85,7 @@ impl<S: StorageDevice> Initrd<S> {
             string_table,
         };
 
-        let data = core::slice::from_raw_parts(location.add(header_len), len as usize - header_len);
+        let data = core::slice::from_raw_parts(location.add(header_len), len - header_len);
 
         Some(Self {
             header,
@@ -91,13 +94,14 @@ impl<S: StorageDevice> Initrd<S> {
         })
     }
 
-    pub unsafe fn new(start: usize, len: usize, mut device: S) -> Option<Self> {
+    pub fn new(start: usize, len: usize, mut device: S) -> Option<Self> {
         let mut buffer = vec![0; len];
         let len = device.read(start, len, &mut buffer);
 
         let location = buffer.as_ptr();
 
-        Self::new_shared(location, len)
+        // location points to a buffer with correct length - definitely safe
+        unsafe { Self::new_shared(location, len) }
     }
 
     fn find_entry(&self, path: impl AsRef<Path>) -> Option<&TableEntry> {

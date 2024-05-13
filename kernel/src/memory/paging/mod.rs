@@ -9,7 +9,7 @@ use x86_64::{
 
 use self::{mapper::Mapper, temporary_page::TemporaryPage};
 use super::{FrameAllocator, PAGE_SIZE};
-use crate::{println, serial_println, BootInfo};
+use crate::{serial_println, BootInfo};
 
 mod entry;
 mod mapper;
@@ -44,11 +44,11 @@ impl ActivePageTable {
     ) {
         {
             let backup = CR3::read().0;
-            let p4_table = temporary_page.map_table_frame(backup.clone(), self);
+            let p4_table = temporary_page.map_table_frame(unsafe { backup.clone() }, self);
 
             // overwrite recursive mapping
             self.p4_mut()[511].set(
-                table.p4_frame.clone(),
+                unsafe { table.p4_frame.clone() },
                 EntryFlags::PRESENT | EntryFlags::WRITABLE,
             );
             CR3::flush_tlb();
@@ -102,11 +102,14 @@ impl InactivePageTable {
         temporary_page: &mut TemporaryPage,
     ) -> Self {
         {
-            let table = temporary_page.map_table_frame(frame.clone(), active_table);
+            let table = temporary_page.map_table_frame(unsafe { frame.clone() }, active_table);
 
             // zero and set up recursive mapping
             table.zero();
-            table[511].set(frame.clone(), EntryFlags::PRESENT | EntryFlags::WRITABLE);
+            table[511].set(
+                unsafe { frame.clone() },
+                EntryFlags::PRESENT | EntryFlags::WRITABLE,
+            );
         }
         temporary_page.unmap(active_table);
 

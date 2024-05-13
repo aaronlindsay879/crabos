@@ -47,8 +47,8 @@ pub struct InterruptDescriptorTable {
     interrupts: [IdtEntry<HandlerFunc>; 256 - 32],
 }
 
-impl InterruptDescriptorTable {
-    pub fn new() -> InterruptDescriptorTable {
+impl Default for InterruptDescriptorTable {
+    fn default() -> InterruptDescriptorTable {
         InterruptDescriptorTable {
             divide_error: IdtEntry::missing(),
             debug: IdtEntry::missing(),
@@ -80,9 +80,11 @@ impl InterruptDescriptorTable {
             interrupts: [IdtEntry::missing(); 256 - 32],
         }
     }
+}
 
+impl InterruptDescriptorTable {
     pub fn load(&'static self) {
-        let ptr = self.into_dtr();
+        let ptr = self.as_dtr();
 
         unsafe {
             ptr.load_idt();
@@ -145,6 +147,8 @@ impl IndexMut<u8> for InterruptDescriptorTable {
     }
 }
 
+/// # Safety
+/// Implementors have to ensure that to_virt_addr returns a valid address.
 pub unsafe trait HandlerFuncType {
     /// Get the virtual address of the handler function.
     fn to_virt_addr(self) -> VirtualAddress;
@@ -202,7 +206,9 @@ impl<F: HandlerFuncType> IdtEntry<F> {
         self.middle_fn_pointer = (pointer >> 16) as u16;
         self.high_fn_pointer = (pointer >> 32) as u32;
 
-        self.options.set_gdt_selector(SegmentSelector::read_cs());
+        unsafe {
+            self.options.set_gdt_selector(SegmentSelector::read_cs());
+        }
         self.options.set_present(true);
 
         &mut self.options
@@ -216,6 +222,13 @@ pub struct EntryOptions {
     bits: u16,
 }
 
+impl Default for EntryOptions {
+    /// Constructs options with reasonable defaults (present = true, gate = true)
+    fn default() -> Self {
+        *Self::minimal().set_present(true)
+    }
+}
+
 #[allow(unused)]
 impl EntryOptions {
     /// Constructs options with minimal options set (only 'must be one' bits)
@@ -226,12 +239,9 @@ impl EntryOptions {
         }
     }
 
-    /// Constructs options with reasonable defaults (present = true, gate = true)
-    pub fn new() -> Self {
-        *Self::minimal().set_present(true)
-    }
-
-    pub fn set_gdt_selector(&mut self, selector: SegmentSelector) -> &mut Self {
+    /// # Safety
+    /// The passed segment selector must point to a valid, long-mode code segment.
+    pub unsafe fn set_gdt_selector(&mut self, selector: SegmentSelector) -> &mut Self {
         self.cs = selector;
         self
     }
@@ -240,6 +250,8 @@ impl EntryOptions {
         self.bits & 0x7
     }
 
+    /// # Safety
+    /// The passed stack index must be valid and not used by any other interrupts.
     pub unsafe fn set_ist_index(&mut self, index: u16) -> &mut Self {
         self.bits.set_bits(0..3, index + 1);
 

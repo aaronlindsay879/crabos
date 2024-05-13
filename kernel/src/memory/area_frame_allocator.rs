@@ -29,7 +29,7 @@ impl FrameAllocator for AreaFrameAllocator {
         };
 
         // "clone" the frame to return if free
-        let frame = self.next_free_frame.clone();
+        let frame = unsafe { self.next_free_frame.clone() };
 
         // last frame in the current area
         let current_area_last_frame = {

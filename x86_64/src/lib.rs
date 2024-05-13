@@ -3,7 +3,6 @@
 
 use core::{arch::asm, marker::PhantomData};
 
-use segment_selector::SegmentSelector;
 use structures::{GlobalDescriptorTable, InterruptDescriptorTable};
 
 pub mod interrupts;
@@ -38,11 +37,11 @@ trait IntoDescriptorTable
 where
     Self: Sized,
 {
-    fn into_dtr(&'static self) -> DescriptorTablePointer<Self>;
+    fn as_dtr(&'static self) -> DescriptorTablePointer<Self>;
 }
 
 impl IntoDescriptorTable for InterruptDescriptorTable {
-    fn into_dtr(&'static self) -> DescriptorTablePointer<Self> {
+    fn as_dtr(&'static self) -> DescriptorTablePointer<Self> {
         DescriptorTablePointer {
             base: self as *const _ as u64,
             limit: (core::mem::size_of::<Self>()) as u16,
@@ -52,7 +51,7 @@ impl IntoDescriptorTable for InterruptDescriptorTable {
 }
 
 impl IntoDescriptorTable for GlobalDescriptorTable {
-    fn into_dtr(&'static self) -> DescriptorTablePointer<GlobalDescriptorTable> {
+    fn as_dtr(&'static self) -> DescriptorTablePointer<GlobalDescriptorTable> {
         DescriptorTablePointer {
             base: self.table.as_ptr() as u64,
             limit: (self.len * core::mem::size_of::<u64>() - 1) as u16,
@@ -74,7 +73,7 @@ pub struct DescriptorTablePointer<T> {
 impl DescriptorTablePointer<InterruptDescriptorTable> {
     /// Loads the given descriptor table as an interrupt descriptor table
     ///
-    /// # SAFETY
+    /// # Safety
     /// Descriptor table must point to a valid interrupt descriptor table
     pub unsafe fn load_idt(self) {
         unsafe {
@@ -86,7 +85,7 @@ impl DescriptorTablePointer<InterruptDescriptorTable> {
 impl DescriptorTablePointer<GlobalDescriptorTable> {
     /// Loads the given descriptor table as an global descriptor table
     ///
-    /// # SAFETY
+    /// # Safety
     /// Descriptor table must point to a valid global descriptor table
     pub unsafe fn load_gdt(self) {
         unsafe {
@@ -109,11 +108,5 @@ pub fn invalidate_address(addr: VirtualAddress) {
 pub fn hlt_loop() -> ! {
     loop {
         unsafe { asm!("hlt") }
-    }
-}
-
-pub unsafe fn load_tss(sel: SegmentSelector) {
-    unsafe {
-        asm!("ltr {0:x}", in(reg) sel.0, options(nostack, preserves_flags));
     }
 }

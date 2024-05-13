@@ -13,7 +13,7 @@ mod syscall;
 
 lazy_static! {
     static ref IDT: InterruptDescriptorTable = {
-        let mut idt = InterruptDescriptorTable::new();
+        let mut idt = InterruptDescriptorTable::default();
 
         idt.divide_error.set(divide_by_zero_handler);
         idt.breakpoint.set(breakpoint_handler);

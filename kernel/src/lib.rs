@@ -13,19 +13,13 @@
 
 extern crate alloc;
 
-use alloc::{
-    collections::BTreeMap,
-    string::{String, ToString},
-};
+use alloc::string::{String, ToString};
 use core::{
     panic::PanicInfo,
     sync::atomic::{AtomicBool, Ordering},
 };
 
-use crabstd::{
-    fs::{File, Path},
-    mutex::Mutex,
-};
+use crabstd::{fs::File, mutex::Mutex};
 use initrd::Initrd;
 use multiboot::prelude::*;
 use ram::Ram;
@@ -51,12 +45,14 @@ fn panic(info: &PanicInfo) -> ! {
 
 static RAMFS: Mutex<Option<Initrd<Ram>>> = Mutex::new(None);
 
+// needed for false positive on `BootInfo::new`
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn kernel_main(addr: *const u32) {
     let bootinfo = unsafe { BootInfo::new(addr) };
     init(&bootinfo);
 
-    fn read_file<'a>(path: &str) -> Option<String> {
+    fn read_file(path: &str) -> Option<String> {
         let mut buf = [0; 16384];
         let mut file = File::new(path)?;
         let bytes_read = file.read(&mut buf);
@@ -100,10 +96,10 @@ fn init(bootinfo: &BootInfo) {
         .find(|module| module.string == c"initrd")
         .expect("no initrd module");
 
-    memory::init(&bootinfo, initrd);
+    memory::init(bootinfo, initrd);
 
     *WRITER.lock().get_mut() =
-        Some(Writer::from_bootinfo(&bootinfo).expect("invalid framebuffer type"));
+        Some(Writer::from_bootinfo(bootinfo).expect("invalid framebuffer type"));
 
     *RAMFS.lock() = unsafe {
         Initrd::new_ram(

@@ -17,6 +17,8 @@ impl SegmentSelector {
         SegmentSelector(val)
     }
 
+    /// # Safety
+    /// `self` must be a valid segment selector to write to `CS`
     pub unsafe fn write_cs(&self) {
         unsafe {
             asm!(
@@ -32,9 +34,19 @@ impl SegmentSelector {
         }
     }
 
+    /// # Safety
+    /// `self` must be a valid segment selector to write to `SS`
     pub unsafe fn write_ss(&self) {
         unsafe {
             asm!("mov ss, {:x}", in(reg) self.0);
+        }
+    }
+
+    /// # Safety
+    /// `self` must be a valid segment selector to load as tss.
+    pub unsafe fn load_tss(&self) {
+        unsafe {
+            asm!("ltr {0:x}", in(reg) self.0, options(nostack, preserves_flags));
         }
     }
 

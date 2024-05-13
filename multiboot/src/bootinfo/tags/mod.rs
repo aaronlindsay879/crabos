@@ -51,6 +51,7 @@ trait ParseTag: Sized {
 ///
 /// https://www.gnu.org/software/grub/manual/multiboot2/multiboot.html#Boot-information-format
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum Tag {
     End,
     BootCommandLine(&'static CStr),
@@ -66,6 +67,9 @@ pub enum Tag {
 
 impl Tag {
     /// Parses a tag at the given address, returning the parsed tag and the size of it
+    ///
+    /// # Safety
+    /// `addr` must point to the start of a valid multiboot2 tag.
     pub unsafe fn parse_tag(mut addr: *const u32) -> (Option<Self>, usize) {
         /* all tags start with following format
                 +-------------------+
