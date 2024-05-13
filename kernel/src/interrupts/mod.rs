@@ -34,12 +34,18 @@ lazy_static! {
 }
 
 extern "x86-interrupt" fn divide_by_zero_handler(stack_frame: ExceptionStackFrame) {
+    log::error!("EXCEPTION: DIVIDE BY ZERO\n{}", stack_frame);
     println!("\nEXCEPTION: DIVIDE BY ZERO\n{}", stack_frame);
 
     x86_64::hlt_loop();
 }
 
 extern "x86-interrupt" fn invalid_opcode_handler(stack_frame: ExceptionStackFrame) {
+    log::error!(
+        "EXCEPTION: INVALID OPCODE at {:#X}\n{}",
+        stack_frame.instruction_pointer,
+        stack_frame
+    );
     println!(
         "\nEXCEPTION: INVALID OPCODE at {:#X}\n{}",
         stack_frame.instruction_pointer, stack_frame
@@ -49,6 +55,11 @@ extern "x86-interrupt" fn invalid_opcode_handler(stack_frame: ExceptionStackFram
 }
 
 extern "x86-interrupt" fn breakpoint_handler(stack_frame: ExceptionStackFrame) {
+    log::info!(
+        "EXCEPTION: BREAKPOINT at {:#X}\n{}",
+        stack_frame.instruction_pointer,
+        stack_frame
+    );
     println!(
         "\nEXCEPTION: BREAKPOINT at {:#X}\n{}",
         stack_frame.instruction_pointer, stack_frame
@@ -56,6 +67,7 @@ extern "x86-interrupt" fn breakpoint_handler(stack_frame: ExceptionStackFrame) {
 }
 
 extern "x86-interrupt" fn double_fault(stack_frame: ExceptionStackFrame, err: u64) -> ! {
+    log::error!("DOUBLE FAULT with err {}\n{}", err, stack_frame);
     panic!("\nDOUBLE FAULT with err {}\n{}", err, stack_frame);
 }
 
@@ -71,6 +83,13 @@ bitflags! {
 }
 
 extern "x86-interrupt" fn page_fault_handler(stack_frame: ExceptionStackFrame, error_code: u64) {
+    log::error!(
+        "EXCEPTION: PAGE FAULT while accessing {:#X}\
+        \nerror code: {:?}\n{}",
+        CR2::read(),
+        PageFaultErrorCode::from_bits(error_code).unwrap(),
+        stack_frame
+    );
     println!(
         "\nEXCEPTION: PAGE FAULT while accessing {:#X}\
         \nerror code: {:?}\n{}",
@@ -86,6 +105,13 @@ extern "x86-interrupt" fn general_protection_fault_handler(
     stack_frame: ExceptionStackFrame,
     error_code: u64,
 ) {
+    log::error!(
+        "EXCEPTION: GENERAL PROTECTION FAULT while accessing {:#X}\
+        \nerror code: {:?}\n{}",
+        CR2::read(),
+        error_code,
+        stack_frame
+    );
     println!(
         "\nEXCEPTION: GENERAL PROTECTION FAULT while accessing {:#X}\
         \nerror code: {:?}\n{}",

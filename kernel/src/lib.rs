@@ -76,8 +76,8 @@ pub extern "C" fn kernel_main(addr: *const u32) {
     );
 
     println!(
-        "reading file `ramfs//nope`:\n{:?}\n",
-        read_file("ramfs//nope")
+        "reading file `notramfs//nope`:\n{:?}\n",
+        read_file("notramfs//nope")
     );
 
     println!(
@@ -123,8 +123,9 @@ fn init(bootinfo: &BootInfo) {
     log::trace!("ramfs initialised");
 
     gdt::init();
-
     interrupts::init();
+
+    log::trace!("kernel initialised");
 }
 
 multiboot_header! {

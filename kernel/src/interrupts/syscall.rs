@@ -5,8 +5,6 @@ use crabstd::{
     syscall as syscalls,
 };
 
-use crate::println;
-
 macro_rules! syscall {
     ($arg1:expr) => {
         asm!(
@@ -69,7 +67,7 @@ extern "x86-interrupt" fn no_function() {
         asm!("mov {}, rax", out(reg) rax);
     }
 
-    println!("syscall called with invalid code {rax}");
+    log::info!("syscall called with incorrect operand `{rax}`");
 }
 
 #[no_mangle]
@@ -86,6 +84,14 @@ extern "x86-interrupt" fn read() {
     let file = unsafe { &*file };
     let buffer = unsafe { core::slice::from_raw_parts_mut(buffer, buffer_len) };
 
+    log::info!("read syscall called");
+    log::trace!("\t file: {file:?}");
+    log::trace!(
+        "\t buffer addr: {:#X}, buffer len: {:#X}",
+        buffer.as_ptr() as usize,
+        buffer.len()
+    );
+
     let device = file.path().device().unwrap();
 
     let written = match device {
@@ -95,7 +101,7 @@ extern "x86-interrupt" fn read() {
             .unwrap()
             .read_file(file, buffer),
         _ => {
-            println!("unknown device!");
+            log::warn!("attempted to read from invalid device");
             0
         }
     };
@@ -116,6 +122,9 @@ extern "x86-interrupt" fn open() {
     }
 
     let path = Path::new(unsafe { core::str::from_raw_parts(path, path_len) });
+    log::info!("open syscall called");
+    log::trace!("\t path: {path:?}");
+
     let (device, path) = path.device_path().unwrap();
 
     let driver_response = match device {
@@ -125,7 +134,7 @@ extern "x86-interrupt" fn open() {
             .unwrap()
             .open_file(Path::new(path)),
         _ => {
-            println!("unknown device!");
+            log::warn!("attempted to open path on invalid device");
             false
         }
     };
