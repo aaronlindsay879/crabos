@@ -24,11 +24,15 @@ use initrd::Initrd;
 use multiboot::prelude::*;
 use ram::Ram;
 
-use crate::io::{Writer, WRITER};
+use crate::{
+    io::{Writer, WRITER},
+    logger::LOGGER,
+};
 
 mod gdt;
 mod interrupts;
 mod io;
+mod logger;
 mod memory;
 mod serial;
 
@@ -37,7 +41,7 @@ pub type BootInfo = multiboot::BootInfo<MODULE_COUNT>;
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-    serial_println!("err: {}", info);
+    log::error!("{}", info);
     println!("err: {}", info);
 
     x86_64::hlt_loop()
@@ -89,17 +93,23 @@ fn init(bootinfo: &BootInfo) {
         panic!("init must only be called once")
     }
 
+    LOGGER.init().expect("failed to init logger");
+    log::trace!("logger initialised");
+
     let initrd = bootinfo
         .modules
         .iter()
         .flatten()
         .find(|module| module.string == c"initrd")
         .expect("no initrd module");
+    log::trace!("initrd module found");
 
     memory::init(bootinfo, initrd);
+    log::trace!("memory initialised");
 
     *WRITER.lock().get_mut() =
         Some(Writer::from_bootinfo(bootinfo).expect("invalid framebuffer type"));
+    log::trace!("stdio initialised");
 
     *RAMFS.lock() = unsafe {
         Initrd::new_ram(
@@ -109,14 +119,15 @@ fn init(bootinfo: &BootInfo) {
     };
 
     if RAMFS.lock().is_none() {
-        let location = (initrd.start as usize | 0x00FF_FFFF_0000) as *const [u8; 4];
-        println!("{:?}", unsafe { *location });
-        println!("{:?}", *b"KTIY");
         panic!("no ramfs driver loaded");
     }
+    log::trace!("ramfs initialised");
 
     gdt::init();
+    log::trace!("gdt initialised");
+
     interrupts::init();
+    log::trace!("interrupts initialised");
 }
 
 multiboot_header! {

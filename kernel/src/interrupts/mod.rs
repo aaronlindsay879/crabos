@@ -41,7 +41,7 @@ extern "x86-interrupt" fn divide_by_zero_handler(stack_frame: ExceptionStackFram
 
 extern "x86-interrupt" fn invalid_opcode_handler(stack_frame: ExceptionStackFrame) {
     println!(
-        "\nEXCEPTION: INVALID OPCODE at {:#x}\n{}",
+        "\nEXCEPTION: INVALID OPCODE at {:#X}\n{}",
         stack_frame.instruction_pointer, stack_frame
     );
 
@@ -50,7 +50,7 @@ extern "x86-interrupt" fn invalid_opcode_handler(stack_frame: ExceptionStackFram
 
 extern "x86-interrupt" fn breakpoint_handler(stack_frame: ExceptionStackFrame) {
     println!(
-        "\nEXCEPTION: BREAKPOINT at {:#x}\n{}",
+        "\nEXCEPTION: BREAKPOINT at {:#X}\n{}",
         stack_frame.instruction_pointer, stack_frame
     );
 }
@@ -72,7 +72,7 @@ bitflags! {
 
 extern "x86-interrupt" fn page_fault_handler(stack_frame: ExceptionStackFrame, error_code: u64) {
     println!(
-        "\nEXCEPTION: PAGE FAULT while accessing {:#x}\
+        "\nEXCEPTION: PAGE FAULT while accessing {:#X}\
         \nerror code: {:?}\n{}",
         CR2::read(),
         PageFaultErrorCode::from_bits(error_code).unwrap(),
@@ -87,7 +87,7 @@ extern "x86-interrupt" fn general_protection_fault_handler(
     error_code: u64,
 ) {
     println!(
-        "\nEXCEPTION: GENERAL PROTECTION FAULT while accessing {:#x}\
+        "\nEXCEPTION: GENERAL PROTECTION FAULT while accessing {:#X}\
         \nerror code: {:?}\n{}",
         CR2::read(),
         error_code,

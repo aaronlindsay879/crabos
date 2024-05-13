@@ -34,9 +34,19 @@ pub fn init(bootinfo: &BootInfo, initrd: &Module) {
 
     let elf_symbols = bootinfo.elf_symbols.expect("Memory map tag required");
     let (kernel_start, kernel_end) = kernel_range(&elf_symbols);
+    log::trace!(
+        "kernel found in range {:#X} to {:#X}",
+        kernel_start,
+        kernel_end
+    );
 
     let multiboot_start = bootinfo.addr;
     let multiboot_end = multiboot_start + bootinfo.total_size;
+    log::trace!(
+        "multiboot info found in range {:#X} to {:#X}",
+        multiboot_start,
+        multiboot_end
+    );
 
     let mut frame_allocator = AreaFrameAllocator::new(
         kernel_start as usize,
@@ -54,6 +64,12 @@ pub fn init(bootinfo: &BootInfo, initrd: &Module) {
     for page in Page::range_inclusive(heap_start_page, heap_end_page) {
         active_table.map(page, EntryFlags::WRITABLE, &mut frame_allocator);
     }
+
+    log::info!(
+        "mapping heap at addr: {:#X}, size: {:#X}",
+        HEAP_START,
+        HEAP_START + HEAP_SIZE - 1
+    );
 }
 
 fn kernel_range(elf_symbols: &ElfSymbols) -> (u64, u64) {

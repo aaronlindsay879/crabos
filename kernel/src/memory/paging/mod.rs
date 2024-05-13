@@ -9,7 +9,7 @@ use x86_64::{
 
 use self::{mapper::Mapper, temporary_page::TemporaryPage};
 use super::{FrameAllocator, PAGE_SIZE};
-use crate::{serial_println, BootInfo};
+use crate::BootInfo;
 
 mod entry;
 mod mapper;
@@ -152,8 +152,8 @@ pub fn remap_kernel<A: FrameAllocator>(
                 "sections need to be page aligned"
             );
 
-            serial_println!(
-                "mapping kernel section {:?} at addr: {:#x}, size: {:#x}",
+            log::info!(
+                "mapping kernel section {:?} at addr: {:#X}, size: {:#X}",
                 section.name(string_header),
                 section.addr,
                 section.size
@@ -173,8 +173,8 @@ pub fn remap_kernel<A: FrameAllocator>(
         let framebuffer_info = bootinfo.framebuffer_info.unwrap();
         let buffer_start = framebuffer_info.buffer_addr as usize;
         let buffer_end = buffer_start + (framebuffer_info.pitch * framebuffer_info.height) as usize;
-        serial_println!(
-            "mapping framebuffer at addr: {:#x}, size: {:#x}",
+        log::info!(
+            "mapping framebuffer at addr: {:#X}, size: {:#X}",
             buffer_start,
             buffer_end - buffer_start
         );
@@ -189,35 +189,25 @@ pub fn remap_kernel<A: FrameAllocator>(
         // map multiboot info
         let multiboot_start = Frame::containing_address(bootinfo.addr);
         let multiboot_end = Frame::containing_address(bootinfo.addr + bootinfo.total_size - 1);
-        serial_println!(
-            "mapping multiboot info at addr: {:#x}, size: {:#x}",
+        log::info!(
+            "mapping multiboot info at addr: {:#X}, size: {:#X}",
             bootinfo.addr,
             bootinfo.total_size
         );
 
         for frame in Frame::range_inclusive(multiboot_start, multiboot_end) {
-            serial_println!(
-                "mapping page {:?} to frame {:?}",
-                Page::containing_address(frame.start_address()),
-                frame
-            );
             mapper.identity_map(frame, EntryFlags::PRESENT, allocator);
         }
 
         let initrd_start_page = Frame::containing_address(initrd.start as usize);
         let initrd_end_page = Frame::containing_address(initrd.end as usize);
-        serial_println!(
-            "mapping initrd at addr: {:#x}, size: {:#x}",
+        log::info!(
+            "mapping initrd at addr: {:#X}, size: {:#X}",
             initrd.start,
             initrd.end - initrd.start
         );
 
         for frame in Frame::range_inclusive(initrd_start_page, initrd_end_page) {
-            serial_println!(
-                "mapping page {:?} to frame {:?}",
-                Page::containing_address(frame.start_address() | 0x00FF_FFFF_0000),
-                frame
-            );
             mapper.map_to(
                 Page::containing_address(frame.start_address() | 0x00FF_FFFF_0000),
                 frame,
@@ -229,12 +219,12 @@ pub fn remap_kernel<A: FrameAllocator>(
 
     // finally switch tables to use new mappings
     let old_table = active_table.switch(new_table);
-    serial_println!("new p4 table loaded");
+    log::trace!("new p4 table loaded");
 
     // now set old p4 table as a guard page to prevent stack overflows
     let old_p4_page = Page::containing_address(old_table.p4_frame.start_address());
     active_table.unmap(old_p4_page, allocator);
-    serial_println!("guard page at {:#x}", old_p4_page.start_address());
+    log::trace!("guard page at {:#X}", old_p4_page.start_address());
 
     active_table
 }
