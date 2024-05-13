@@ -111,5 +111,10 @@ extern "x86-interrupt" fn syscall_handler(_stack_frame: ExceptionStackFrame) {
 }
 
 pub fn init() {
+    log::trace!("initialising interrupts");
+
     IDT.load();
+    log::trace!("\t* loaded IDT");
+
+    log::trace!("interrupts initialised");
 }

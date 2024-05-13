@@ -48,6 +48,7 @@ fn panic(info: &PanicInfo) -> ! {
 }
 
 static RAMFS: Mutex<Option<Initrd<Ram>>> = Mutex::new(None);
+const RAMFS_ADDR: usize = 0x00FF_0000_0000;
 
 // needed for false positive on `BootInfo::new`
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -102,21 +103,19 @@ fn init(bootinfo: &BootInfo) {
         .flatten()
         .find(|module| module.string == c"initrd")
         .expect("no initrd module");
-    log::trace!("initrd module found");
+    log::trace!(
+        "initrd module found in range {:#X}-{:#X}",
+        initrd.start,
+        initrd.end
+    );
 
     memory::init(bootinfo, initrd);
-    log::trace!("memory initialised");
 
     *WRITER.lock().get_mut() =
         Some(Writer::from_bootinfo(bootinfo).expect("invalid framebuffer type"));
     log::trace!("stdio initialised");
 
-    *RAMFS.lock() = unsafe {
-        Initrd::new_ram(
-            initrd.start as usize | 0x00FF_FFFF_0000,
-            (initrd.end - initrd.start) as usize,
-        )
-    };
+    *RAMFS.lock() = unsafe { Initrd::new_ram(RAMFS_ADDR, (initrd.end - initrd.start) as usize) };
 
     if RAMFS.lock().is_none() {
         panic!("no ramfs driver loaded");
@@ -124,10 +123,8 @@ fn init(bootinfo: &BootInfo) {
     log::trace!("ramfs initialised");
 
     gdt::init();
-    log::trace!("gdt initialised");
 
     interrupts::init();
-    log::trace!("interrupts initialised");
 }
 
 multiboot_header! {

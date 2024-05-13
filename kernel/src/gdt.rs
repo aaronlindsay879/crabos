@@ -46,11 +46,19 @@ struct Selectors {
 }
 
 pub fn init() {
+    log::trace!("initialising gdt");
+
     GDT.0.load();
+    log::trace!("\t* loaded GDT");
 
     unsafe {
         GDT.1.code_selector.write_cs();
         GDT.1.data_selector.write_ss();
+        log::trace!("\t* updated CS and SS");
+
         GDT.1.tss_selector.load_tss();
+        log::trace!("\t* loaded TSS");
     }
+
+    log::trace!("gdt initialised");
 }

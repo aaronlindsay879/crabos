@@ -1,7 +1,7 @@
 use core::ops::{Deref, DerefMut};
 
 pub use entry::EntryFlags;
-use multiboot::{elf_symbols::SectionFlags, Module};
+use multiboot::elf_symbols::SectionFlags;
 use x86_64::{
     registers::CR3,
     structures::{Frame, Page},
@@ -119,11 +119,8 @@ impl InactivePageTable {
 
 /// Remaps the kernel using provided frame allocator, removing the huge pages and reckless
 /// identity mapping used in bootstrap assembly.
-pub fn remap_kernel<A: FrameAllocator>(
-    allocator: &mut A,
-    bootinfo: &BootInfo,
-    initrd: &Module,
-) -> ActivePageTable {
+pub fn remap_kernel<A: FrameAllocator>(allocator: &mut A, bootinfo: &BootInfo) -> ActivePageTable {
+    log::info!("\t* remapping kernel");
     // create temporary page at arbitrary (but unused) page
     let mut temporary_page = TemporaryPage::new(Page { number: 0xDEADBEEF }, allocator);
 
@@ -153,10 +150,12 @@ pub fn remap_kernel<A: FrameAllocator>(
             );
 
             log::info!(
-                "mapping kernel section {:?} at addr: {:#X}, size: {:#X}",
+                "\t\t* mapping kernel section {:?} at addr: {:#X}, size: {:#X} ({:#X}-{:#X})",
                 section.name(string_header),
                 section.addr,
-                section.size
+                section.size,
+                section.addr,
+                section.addr + section.size
             );
 
             let flags = EntryFlags::from_elf_section_flags(section);
@@ -169,62 +168,32 @@ pub fn remap_kernel<A: FrameAllocator>(
             }
         }
 
-        // then map VGA buffer
-        let framebuffer_info = bootinfo.framebuffer_info.unwrap();
-        let buffer_start = framebuffer_info.buffer_addr as usize;
-        let buffer_end = buffer_start + (framebuffer_info.pitch * framebuffer_info.height) as usize;
-        log::info!(
-            "mapping framebuffer at addr: {:#X}, size: {:#X}",
-            buffer_start,
-            buffer_end - buffer_start
-        );
-
-        for frame in Frame::range_inclusive(
-            Frame::containing_address(buffer_start),
-            Frame::containing_address(buffer_end),
-        ) {
-            mapper.identity_map(frame, EntryFlags::WRITABLE, allocator);
-        }
-
-        // map multiboot info
+        // also map multiboot info here, since held reference needs to stay valid
         let multiboot_start = Frame::containing_address(bootinfo.addr);
         let multiboot_end = Frame::containing_address(bootinfo.addr + bootinfo.total_size - 1);
         log::info!(
-            "mapping multiboot info at addr: {:#X}, size: {:#X}",
+            "\t\t* mapping multiboot info at addr: {:#X}, size: {:#X} ({:#X}-{:#X})",
             bootinfo.addr,
-            bootinfo.total_size
+            bootinfo.total_size,
+            bootinfo.addr,
+            bootinfo.addr + bootinfo.total_size
         );
 
         for frame in Frame::range_inclusive(multiboot_start, multiboot_end) {
             mapper.identity_map(frame, EntryFlags::PRESENT, allocator);
         }
-
-        let initrd_start_page = Frame::containing_address(initrd.start as usize);
-        let initrd_end_page = Frame::containing_address(initrd.end as usize);
-        log::info!(
-            "mapping initrd at addr: {:#X}, size: {:#X}",
-            initrd.start,
-            initrd.end - initrd.start
-        );
-
-        for frame in Frame::range_inclusive(initrd_start_page, initrd_end_page) {
-            mapper.map_to(
-                Page::containing_address(frame.start_address() | 0x00FF_FFFF_0000),
-                frame,
-                EntryFlags::PRESENT,
-                allocator,
-            );
-        }
     });
 
-    // finally switch tables to use new mappings
+    // switch tables to use new mappings
     let old_table = active_table.switch(new_table);
-    log::trace!("new p4 table loaded");
+    log::trace!("\t\t* new p4 table loaded");
 
     // now set old p4 table as a guard page to prevent stack overflows
     let old_p4_page = Page::containing_address(old_table.p4_frame.start_address());
     active_table.unmap(old_p4_page, allocator);
-    log::trace!("guard page at {:#X}", old_p4_page.start_address());
+    log::trace!("\t\t* guard page at {:#X}", old_p4_page.start_address());
+
+    log::info!("\t* kernel remapped");
 
     active_table
 }

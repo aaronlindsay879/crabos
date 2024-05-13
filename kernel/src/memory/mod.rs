@@ -1,5 +1,6 @@
 mod area_frame_allocator;
 mod heap_allocator;
+mod map;
 mod paging;
 
 use core::sync::atomic::{AtomicBool, Ordering};
@@ -7,9 +8,8 @@ use core::sync::atomic::{AtomicBool, Ordering};
 pub use area_frame_allocator::AreaFrameAllocator;
 use multiboot::{ElfSymbols, Module};
 pub use paging::*;
-use x86_64::structures::{Frame, Page};
+use x86_64::structures::Frame;
 
-use self::heap_allocator::{HEAP_SIZE, HEAP_START};
 use crate::BootInfo;
 
 /// Size of a page in bytes
@@ -32,10 +32,12 @@ pub fn init(bootinfo: &BootInfo, initrd: &Module) {
         panic!("memory::init must only be called once")
     }
 
+    log::info!("initialising memory");
+
     let elf_symbols = bootinfo.elf_symbols.expect("Memory map tag required");
     let (kernel_start, kernel_end) = kernel_range(&elf_symbols);
     log::trace!(
-        "kernel found in range {:#X} to {:#X}",
+        "\t* kernel found in range {:#X}-{:#X}",
         kernel_start,
         kernel_end
     );
@@ -43,7 +45,7 @@ pub fn init(bootinfo: &BootInfo, initrd: &Module) {
     let multiboot_start = bootinfo.addr;
     let multiboot_end = multiboot_start + bootinfo.total_size;
     log::trace!(
-        "multiboot info found in range {:#X} to {:#X}",
+        "\t* multiboot info found in range {:#X}-{:#X}",
         multiboot_start,
         multiboot_end
     );
@@ -56,20 +58,14 @@ pub fn init(bootinfo: &BootInfo, initrd: &Module) {
         bootinfo.memory_map.unwrap().entries,
     );
 
-    let mut active_table = remap_kernel(&mut frame_allocator, bootinfo, initrd);
+    let mut active_table = remap_kernel(&mut frame_allocator, bootinfo);
 
-    let heap_start_page = Page::containing_address(HEAP_START);
-    let heap_end_page = Page::containing_address(HEAP_START + HEAP_SIZE - 1);
+    // then map VGA buffer, initrd, and heap
+    map::map_framebuffer(bootinfo, &mut active_table, &mut frame_allocator);
+    map::map_initrd(initrd, &mut active_table, &mut frame_allocator);
+    map::map_heap(&mut active_table, &mut frame_allocator);
 
-    for page in Page::range_inclusive(heap_start_page, heap_end_page) {
-        active_table.map(page, EntryFlags::WRITABLE, &mut frame_allocator);
-    }
-
-    log::info!(
-        "mapping heap at addr: {:#X}, size: {:#X}",
-        HEAP_START,
-        HEAP_SIZE
-    );
+    log::info!("memory initialised");
 }
 
 fn kernel_range(elf_symbols: &ElfSymbols) -> (u64, u64) {
