@@ -111,6 +111,7 @@ fn init(bootinfo: &BootInfo) {
 
     memory::init(bootinfo, initrd);
 
+    log::trace!("initialising stdio");
     *WRITER.lock().get_mut() =
         Some(Writer::from_bootinfo(bootinfo).expect("invalid framebuffer type"));
     log::trace!("stdio initialised");
