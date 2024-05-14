@@ -31,11 +31,8 @@ impl BitmapFrameAllocator {
         // now we "steal" that many frames starting from `start_addr`
         let bitmaps = unsafe {
             // zero memory and return a slice for it
-            core::ptr::write_bytes(start_addr as *mut u64, 0, frames_needed * FRAMES_PER_BITMAP);
-            core::slice::from_raw_parts_mut(
-                start_addr as *mut u64,
-                frames_needed * FRAMES_PER_BITMAP,
-            )
+            core::ptr::write_bytes(start_addr as *mut u64, 0, frames_needed * BITMAP_LENGTH);
+            core::slice::from_raw_parts_mut(start_addr as *mut u64, frames_needed * BITMAP_LENGTH)
         };
 
         // find start and end frames where allocator will store data
@@ -44,13 +41,51 @@ impl BitmapFrameAllocator {
             number: frame_start.number + frames_needed,
         };
 
-        (
-            Self {
-                memory_regions,
-                bitmaps,
-            },
-            (frame_start, frame_end),
-        )
+        let mut bitmap_alloc = Self {
+            memory_regions,
+            bitmaps,
+        };
+
+        bitmap_alloc.set_ignored_frames(&frame_start, &frame_end);
+
+        // now we need to mask out all
+        let mut bitmap_index = 0;
+        for region in bitmap_alloc.ram_regions() {
+            // number of frames in memory region
+            let frames = (region.length as usize).div_ceil(PAGE_SIZE);
+
+            for index in 0..frames {
+                if (index + 1) * 64 >= frames && index * 64 < frames {
+                    // first frame that's not completely mapped - partially mask out first, and then fully mask remaining
+                    // now we just need to mask all invalid frames to make sure they're not allocated
+                    let valid_frames = frames - index * 64;
+                    let mask = generate_mask(valid_frames, 64);
+
+                    log::trace!(
+                        "applying mask {:064b} to alloc frame with index {}",
+                        mask,
+                        bitmap_index + index
+                    );
+
+                    bitmap_alloc.bitmaps[bitmap_index + index] |= mask;
+
+                    log::trace!(
+                        "fully masking in range {:?}",
+                        bitmap_index + index + 1..align_up(bitmap_index + index, BITMAP_LENGTH)
+                    );
+                    for bitmap in bitmap_alloc.bitmaps
+                        [bitmap_index + index + 1..align_up(bitmap_index + index, BITMAP_LENGTH)]
+                        .iter_mut()
+                    {
+                        *bitmap = !0;
+                    }
+                }
+            }
+
+            bitmap_index += align_up(frames, BITMAP_LENGTH);
+        }
+
+        (bitmap_alloc, (frame_start, frame_end))
     }
 
     /// Set a region of memory as ignored by the allocator, so it can't allocate frames from that region
@@ -133,17 +168,13 @@ impl FrameAllocator for BitmapFrameAllocator {
     fn allocate_frame(&mut self) -> Option<Frame> {
         let mut bitmap_index = 0;
         for region in self.ram_regions() {
-            let frames = (region.length as usize).div_ceil(PAGE_SIZE);
+            // number of frames in memory region
+            let frames = (region.length as usize).div_ceil(PAGE_SIZE * 64);
 
             for (index, bitmap) in self.bitmaps[bitmap_index..bitmap_index + frames]
                 .iter_mut()
                 .enumerate()
             {
-                if (index + 1) * 64 >= frames {
-                    // special case since some bits may be ignored, currently ignore for testing purposes
-                    continue;
-                }
-
                 if *bitmap == !0 {
                     continue;
                 }
@@ -171,7 +202,7 @@ impl FrameAllocator for BitmapFrameAllocator {
         for region in self.ram_regions() {
             // skip regions until we find memory region that address lies in
             if (region.base_addr as usize + region.length as usize) < frame.start_address() {
-                let frames = (region.length as usize).div_ceil(PAGE_SIZE);
+                let frames = (region.length as usize).div_ceil(PAGE_SIZE * 64);
                 bitmap_index += align_up(frames, BITMAP_LENGTH);
                 continue;
             }

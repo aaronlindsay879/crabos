@@ -95,7 +95,6 @@ pub fn init(bootinfo: &BootInfo, initrd: &Module) {
     let (mut frame_allocator, (frame_start, frame_end)) =
         BitmapFrameAllocator::new(alloc_start_addr, bootinfo.memory_map.unwrap().entries);
 
-    frame_allocator.set_ignored_frames(&frame_start, &frame_end);
     frame_allocator.set_ignored_area(kernel_start as usize, kernel_end as usize);
     frame_allocator.set_ignored_area(multiboot_start, multiboot_end);
 

@@ -110,6 +110,8 @@ fn init(bootinfo: &BootInfo) {
         initrd.end
     );
 
+    log::trace!("{:#?}", bootinfo.memory_map.unwrap().entries);
+
     memory::init(bootinfo, initrd);
 
     log::trace!("initialising stdio");
