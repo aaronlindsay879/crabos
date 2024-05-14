@@ -118,8 +118,14 @@ impl InactivePageTable {
 }
 
 /// Remaps the kernel using provided frame allocator, removing the huge pages and reckless
-/// identity mapping used in bootstrap assembly.
-pub fn remap_kernel<A: FrameAllocator>(allocator: &mut A, bootinfo: &BootInfo) -> ActivePageTable {
+/// identity mapping used in bootstrap assembly. Identity maps frames between `frame_start`
+/// and `frame_end` and returns the new active page table & the page to set as guard page.
+pub fn remap_kernel<A: FrameAllocator>(
+    allocator: &mut A,
+    bootinfo: &BootInfo,
+    frame_start: Frame,
+    frame_end: Frame,
+) -> (ActivePageTable, Page) {
     log::info!("\t* remapping kernel");
     // create temporary page at arbitrary (but unused) page
     let mut temporary_page = TemporaryPage::new(Page { number: 0xDEADBEEF }, allocator);
@@ -177,6 +183,11 @@ pub fn remap_kernel<A: FrameAllocator>(allocator: &mut A, bootinfo: &BootInfo) -
         for frame in Frame::range_inclusive(multiboot_start, multiboot_end) {
             mapper.identity_map(frame, EntryFlags::PRESENT, allocator);
         }
+
+        // allocator frames need to be mapped here to prevent GPF when new mappings are loaded
+        for frame in Frame::range_inclusive(frame_start, frame_end) {
+            mapper.identity_map(frame, EntryFlags::WRITABLE, allocator);
+        }
     });
 
     // switch tables to use new mappings
@@ -186,9 +197,10 @@ pub fn remap_kernel<A: FrameAllocator>(allocator: &mut A, bootinfo: &BootInfo) -
     // now set old p4 table as a guard page to prevent stack overflows
     let old_p4_page = Page::containing_address(old_table.p4_frame.start_address());
     active_table.unmap(old_p4_page, allocator, true);
+
     log::trace!("\t\t* guard page at {:#X}", old_p4_page.start_address());
 
     log::info!("\t* kernel remapped");
 
-    active_table
+    (active_table, old_p4_page)
 }

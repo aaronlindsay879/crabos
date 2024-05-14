@@ -1,16 +1,15 @@
-mod area_frame_allocator;
+mod frame_allocator;
 mod heap_allocator;
 mod map;
 mod paging;
 
 use core::sync::atomic::{AtomicBool, Ordering};
 
-pub use area_frame_allocator::AreaFrameAllocator;
 use multiboot::{ElfSymbols, Module};
 pub use paging::*;
 use x86_64::structures::Frame;
 
-use crate::BootInfo;
+use crate::{memory::frame_allocator::BitmapFrameAllocator, BootInfo};
 
 macro_rules! log_mapping {
     ($string:expr, start: $start:expr, end: $end:expr $(, $args:expr)*) => {
@@ -85,15 +84,18 @@ pub fn init(bootinfo: &BootInfo, initrd: &Module) {
         multiboot_end
     );
 
-    let mut frame_allocator = AreaFrameAllocator::new(
-        kernel_start as usize,
-        kernel_end as usize,
-        multiboot_start,
-        multiboot_end,
-        bootinfo.memory_map.unwrap().entries,
-    );
+    let alloc_start_addr = align_up(multiboot_end.max(kernel_end as usize), PAGE_SIZE);
+    let (mut frame_allocator, (frame_start, frame_end)) =
+        BitmapFrameAllocator::new(alloc_start_addr, bootinfo.memory_map.unwrap().entries);
 
-    let mut active_table = remap_kernel(&mut frame_allocator, bootinfo);
+    frame_allocator.set_ignored_frames(&frame_start, &frame_end);
+    frame_allocator.set_ignored_area(kernel_start as usize, kernel_end as usize);
+    frame_allocator.set_ignored_area(multiboot_start, multiboot_end);
+
+    let (mut active_table, guard_page) =
+        remap_kernel(&mut frame_allocator, bootinfo, frame_start, frame_end);
+
+    frame_allocator.set_ignored_area(guard_page.start_address(), guard_page.start_address());
 
     // then map VGA buffer, initrd, and heap
     map::map_framebuffer(bootinfo, &mut active_table, &mut frame_allocator);

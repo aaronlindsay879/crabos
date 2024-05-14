@@ -8,7 +8,8 @@
     abi_x86_interrupt,
     iter_intersperse,
     str_from_raw_parts,
-    naked_functions
+    naked_functions,
+    array_windows
 )]
 
 extern crate alloc;

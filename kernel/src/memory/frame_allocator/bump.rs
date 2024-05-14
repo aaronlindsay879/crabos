@@ -1,9 +1,9 @@
 use multiboot::{MemoryMapEntry, MemoryType};
 
-use super::{Frame, FrameAllocator};
+use super::super::{Frame, FrameAllocator};
 
 /// Simple bump allocator for handing out free frames
-pub struct AreaFrameAllocator {
+pub struct BumpFrameAllocator {
     /// Next free frame
     next_free_frame: Frame,
     /// Memory area containing [Self::next_free_frame]
@@ -20,7 +20,7 @@ pub struct AreaFrameAllocator {
     multiboot_end: Frame,
 }
 
-impl FrameAllocator for AreaFrameAllocator {
+impl FrameAllocator for BumpFrameAllocator {
     fn allocate_frame(&mut self) -> Option<Frame> {
         // if area is none, then we're out of free frames
         let area = match self.current_area {
@@ -65,7 +65,7 @@ impl FrameAllocator for AreaFrameAllocator {
     }
 }
 
-impl AreaFrameAllocator {
+impl BumpFrameAllocator {
     /// Construcs a new area frame allocator
     pub fn new(
         kernel_start: usize,
