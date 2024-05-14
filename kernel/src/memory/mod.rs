@@ -84,7 +84,14 @@ pub fn init(bootinfo: &BootInfo, initrd: &Module) {
         multiboot_end
     );
 
-    let alloc_start_addr = align_up(multiboot_end.max(kernel_end as usize), PAGE_SIZE);
+    // find end address of important data structures, and map frame allocator after them
+    // TODO: smarter placement of allocator backing bitmaps
+    let alloc_start_addr = align_up(
+        multiboot_end
+            .max(kernel_end as usize)
+            .max(initrd.end as usize),
+        PAGE_SIZE,
+    );
     let (mut frame_allocator, (frame_start, frame_end)) =
         BitmapFrameAllocator::new(alloc_start_addr, bootinfo.memory_map.unwrap().entries);
 
