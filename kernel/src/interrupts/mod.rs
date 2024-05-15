@@ -130,7 +130,8 @@ extern "x86-interrupt" fn syscall_handler(_stack_frame: ExceptionStackFrame) {
     unsafe {
         asm!(
             "and rax, 0xFF",
-            "jmp [SYSCALL_TABLE + rax*8]",
+            "jmp [{} + rax*8]",
+            sym syscall::SYSCALL_TABLE,
             options(noreturn)
         );
     }

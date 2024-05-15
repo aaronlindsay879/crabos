@@ -39,22 +39,19 @@ macro_rules! syscall {
 }
 
 macro_rules! syscall_table {
-    ($($number:expr => $function:ident$(,)?)*) => {
-        #[used]
-        #[no_mangle]
-        static SYSCALL_TABLE: [&'static (); 256] = {
-            let mut table = [unsafe { &*(no_function as *const ()) }; 256];
+    ($($number:expr => $function:ident$(,)?)*) => {{
+        let mut table = [unsafe { &*(no_function as *const ()) }; 256];
 
-            $(
-                table[$number] = unsafe { &*($function as *const ()) };
-            )*
+        $(
+            table[$number] = unsafe { &*($function as *const ()) };
+        )*
 
-            table
-        };
-    };
+        table
+    }};
 }
 
-syscall_table!(
+#[used]
+pub(super) static SYSCALL_TABLE: [&(); 256] = syscall_table!(
     syscalls::NO_FUNCTION => no_function,
     syscalls::OPEN => open,
     syscalls::READ => read,
