@@ -91,8 +91,9 @@ dependencies = [
 
 [[package]]
 name = "noto-sans-mono-bitmap"
-version = "0.2.0"
-source = "git+https://github.com/phip1611/noto-sans-mono-bitmap-rs.git?branch=dev#a135a0b3fd7061aec3a333f153f40a0b3f0f9abf"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9aa163ae3f5d28f11e4906fac432e39937daee74920caec72a4962810646e0fb"
 
 [[package]]
 name = "paste"

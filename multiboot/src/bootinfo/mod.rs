@@ -87,4 +87,11 @@ where
 
         info
     }
+
+    pub fn get_module(&self, module_str: &CStr) -> Option<&Module> {
+        self.modules
+            .iter()
+            .flatten()
+            .find(|module| module.string == module_str)
+    }
 }

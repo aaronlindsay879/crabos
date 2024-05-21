@@ -22,7 +22,6 @@ version = "1.4.0"
 features = ["spin_no_std"]
 
 [dependencies.noto-sans-mono-bitmap]
-git = "https://github.com/phip1611/noto-sans-mono-bitmap-rs.git"
-branch = "dev"
+version = "0.3"
 default-features = false
 features = ["size_20", "regular", "unicode_ranges_default"]
