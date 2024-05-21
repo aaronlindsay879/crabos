@@ -2,7 +2,7 @@ use crabstd::mutex::Mutex;
 use lazy_static::lazy_static;
 use x86_64::interrupts;
 
-use crate::io::serial::{ports, SerialPort};
+use crate::port::{ports, SerialPort};
 
 lazy_static! {
     pub static ref SERIAL1: Mutex<SerialPort> = {

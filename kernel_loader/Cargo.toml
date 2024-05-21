@@ -7,5 +7,7 @@ edition = "2021"
 crate-type = ["staticlib"]
 
 [dependencies]
+kernel_shared = { path = "../kernel_shared" }
 x86_64 = { path = "../x86_64" }
 multiboot = { path = "../multiboot" }
+log = "0.4.21"

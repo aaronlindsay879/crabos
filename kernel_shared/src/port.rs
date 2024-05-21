@@ -30,6 +30,10 @@ macro_rules! wait_for {
 pub struct SerialPort(u16);
 
 impl SerialPort {
+    /// Creates a new serial port at the given port
+    ///
+    /// # Safety
+    /// `port` must be a valid port to read and/or write from
     pub const unsafe fn new(port: u16) -> Self {
         Self(port)
     }

@@ -2,8 +2,6 @@ use log::{LevelFilter, Log, SetLoggerError};
 
 use crate::serial_println;
 
-pub static LOGGER: Logger = Logger::new(log::LevelFilter::Trace);
-
 pub struct Logger {
     level: LevelFilter,
 }

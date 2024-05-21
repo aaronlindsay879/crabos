@@ -22,19 +22,17 @@ use core::{
 
 use crabstd::{fs::File, mutex::Mutex};
 use initrd::Initrd;
+use kernel_shared::logger::Logger;
 use ram::Ram;
 
-use crate::{
-    io::{Writer, WRITER},
-    logger::LOGGER,
-};
+use crate::io::{Writer, WRITER};
 
 mod gdt;
 mod interrupts;
 mod io;
-mod logger;
 mod memory;
-mod serial;
+
+static LOGGER: Logger = Logger::new(log::LevelFilter::Trace);
 
 pub const MODULE_COUNT: usize = 4;
 pub type BootInfo = multiboot::BootInfo<MODULE_COUNT>;
