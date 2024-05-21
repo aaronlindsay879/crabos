@@ -3,38 +3,30 @@ global enable_paging:function
 
 extern p4_table
 extern p3_table
-extern p2_table
+extern p3_table_phys
 
 section .text
 bits 32
 set_up_page_tables:
-	; recursively map p4 table
-	mov eax, p4_table
-	or eax, 0b11 ; present + writable
-	mov [p4_table + 511 * 8], eax
-
 	; map first P4 entry to P3 table
 	mov eax, p3_table 
 	or eax, 0b11 ; present + writable
 	mov [p4_table], eax
 
-	; map first P3 entry to P2 table
-	mov eax, p2_table
-	or eax, 0b11 ; present + writable
-	mov [p3_table], eax
+	; also point to physical memory mappings
+	mov eax, p3_table_phys
+	or eax, 0b11
+	mov [p4_table + 256 * 8], eax
 
-	; map each P2 entry to huge 2 MiB page
-	mov ecx, 0 ; counter
+	; identity map first 1GiB for kernel loader
+	; 0b10000011 = present + writable + huge
+	mov dword [p3_table], 0x00000000 | 0b10000011
 
-.map_p2_table:
-	mov eax, 0x200000 ; 2 MiB
-	mul ecx ; start address
-	or eax, 0b10000011 ; present + writable + huge
-	mov [p2_table + ecx * 8], eax ; map entry
-
-	inc ecx
-	cmp ecx, 512
-	jne .map_p2_table ; map next entry if counter not 512 yet
+	; also map first 4GiB of physical memory in proper location 
+	mov dword [p3_table_phys + 0 * 8], 0x00000000 | 0b10000011
+	mov dword [p3_table_phys + 1 * 8], 0x40000000 | 0b10000011
+	mov dword [p3_table_phys + 2 * 8], 0x80000000 | 0b10000011
+	mov dword [p3_table_phys + 3 * 8], 0xC0000000 | 0b10000011
 
 	ret
 

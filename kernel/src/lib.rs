@@ -22,7 +22,6 @@ use core::{
 
 use crabstd::{fs::File, mutex::Mutex};
 use initrd::Initrd;
-use multiboot::prelude::*;
 use ram::Ram;
 
 use crate::{
@@ -52,9 +51,12 @@ static RAMFS: Mutex<Option<Initrd<Ram>>> = Mutex::new(None);
 const RAMFS_ADDR: usize = 0x00FF_0000_0000;
 
 // needed for false positive on `BootInfo::new`
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[allow(clippy::not_unsafe_ptr_arg_deref, unreachable_code, unused_variables)]
 #[no_mangle]
 pub extern "C" fn kernel_main(addr: *const u32) {
+    // stub to check if OS boots without actually running code which might not work yet
+    x86_64::hlt_loop();
+
     let bootinfo = unsafe { BootInfo::new(addr) };
     init(&bootinfo);
 
@@ -130,19 +132,4 @@ fn init(bootinfo: &BootInfo) {
     interrupts::init();
 
     log::trace!("kernel initialised");
-}
-
-multiboot_header! {
-    arch: 0,
-    tags: [
-        InformationRequest {
-            requests: &[ELF_SYMBOLS, MEMORY_MAP]
-        },
-        ConsoleFlags::all(),
-        Framebuffer {
-            width: Value(1920),
-            height: Value(1080),
-            depth: NoPreference
-        },
-    ]
 }

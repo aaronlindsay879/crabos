@@ -4,5 +4,5 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-crabstd = { path = "../crabstd" }
+crabstd = { path = "../crabstd", default-features = false }
 bitflags = "2.5.0"

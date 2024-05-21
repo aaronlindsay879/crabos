@@ -27,11 +27,6 @@ SECTIONS
 	{
 		*(.text .text.*)
 	}
-
-	.syscall_table BLOCK(4K) : ALIGN(4K) 
-	{
-		*(.syscall_table)
-	}
  
 	.rodata BLOCK(4K) : ALIGN(4K)
 	{
@@ -52,7 +47,7 @@ SECTIONS
 	/* The compiler may produce other sections, by default it will put them in
 	   a segment with the same name. Simply add stuff here as needed. */
 
-	.comment :
+	/DISCARD/ :
 	{
 		*(.comment)
 	}

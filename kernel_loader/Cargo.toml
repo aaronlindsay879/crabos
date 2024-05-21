@@ -1,0 +1,11 @@
+[package]
+name = "kernel_loader"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["staticlib"]
+
+[dependencies]
+x86_64 = { path = "../x86_64" }
+multiboot = { path = "../multiboot" }

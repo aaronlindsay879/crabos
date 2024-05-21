@@ -1,7 +1,7 @@
 global start:function
 global p4_table:data
 global p3_table:data
-global p2_table:data
+global p3_table_phys:data
 
 section .bss
 align 4096
@@ -9,7 +9,7 @@ p4_table:
 	resb 4096
 p3_table:
 	resb 4096
-p2_table:
+p3_table_phys: 
 	resb 4096
 stack_bottom:
 	resb 4096 * 16
