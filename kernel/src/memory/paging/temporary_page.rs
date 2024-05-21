@@ -1,8 +1,10 @@
+use kernel_shared::memory::frame_alloc::{tiny::TinyAllocator, FrameAllocator};
+
 use super::{
     table::{Level1, Table},
     ActivePageTable, Page, VirtualAddress,
 };
-use crate::memory::{EntryFlags, Frame, FrameAllocator};
+use crate::memory::{EntryFlags, Frame};
 
 /// Helper temporary page struct for changing loaded pages
 pub struct TemporaryPage {
@@ -46,41 +48,5 @@ impl TemporaryPage {
         active_table: &mut ActivePageTable,
     ) -> &mut Table<Level1> {
         unsafe { &mut *(self.map(frame, active_table) as *mut Table<Level1>) }
-    }
-}
-
-/// Minimal frame allocator that just hands out one of a few saved frames
-struct TinyAllocator([Option<Frame>; 3]);
-
-impl TinyAllocator {
-    /// Construct a new tiny allocator, allocating three frames in the process
-    fn new<A: FrameAllocator>(allocator: &mut A) -> Self {
-        let mut f = || allocator.allocate_frame();
-        let frames = [f(), f(), f()];
-
-        Self(frames)
-    }
-}
-
-impl FrameAllocator for TinyAllocator {
-    fn allocate_frame(&mut self) -> Option<Frame> {
-        // find and return one of the saved frames
-        for frame_option in &mut self.0 {
-            if frame_option.is_some() {
-                return frame_option.take();
-            }
-        }
-        None
-    }
-
-    fn deallocate_frame(&mut self, frame: Frame) {
-        // find a frame that's been handed out and save the unused frame there
-        for frame_option in &mut self.0 {
-            if frame_option.is_none() {
-                *frame_option = Some(frame);
-                return;
-            }
-        }
-        panic!("Tiny allocator can hold only 3 frames.");
     }
 }

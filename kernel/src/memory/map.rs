@@ -1,7 +1,8 @@
+use kernel_shared::memory::frame_alloc::FrameAllocator;
 use multiboot::Module;
 use x86_64::structures::{Frame, Page};
 
-use super::{ActivePageTable, FrameAllocator};
+use super::ActivePageTable;
 use crate::{
     memory::{
         heap_allocator::{HEAP_SIZE, HEAP_START},

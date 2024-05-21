@@ -1,5 +1,6 @@
 use core::ptr::NonNull;
 
+use kernel_shared::memory::frame_alloc::FrameAllocator;
 use x86_64::{
     invalidate_address,
     structures::{Frame, Page},
@@ -9,7 +10,7 @@ use super::{
     table::{Level4, Table},
     EntryFlags, PhysicalAddress, VirtualAddress,
 };
-use crate::memory::{paging::ENTRY_COUNT, FrameAllocator, PAGE_SIZE};
+use crate::memory::{paging::ENTRY_COUNT, PAGE_SIZE};
 
 /// A generic table wrapper that can handle mapping pages to frames
 pub struct Mapper {

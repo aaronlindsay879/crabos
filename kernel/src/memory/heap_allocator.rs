@@ -1,6 +1,8 @@
 use alloc::alloc::GlobalAlloc;
 use core::sync::atomic::{AtomicUsize, Ordering};
 
+use x86_64::align_up;
+
 pub const HEAP_START: usize = 0x40000000;
 pub const HEAP_SIZE: usize = 0x400_000; //100 * 1024; // 100 KiB
 
@@ -27,7 +29,7 @@ unsafe impl GlobalAlloc for BumpAllocator {
         loop {
             // load current state of the `next` field
             let current_next = self.next.load(Ordering::Relaxed);
-            let alloc_start = super::align_up(current_next, layout.align());
+            let alloc_start = align_up(current_next, layout.align());
             let alloc_end = alloc_start.saturating_add(layout.size());
 
             if alloc_end <= self.heap_end {

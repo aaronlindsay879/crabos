@@ -1,7 +1,10 @@
 use multiboot::{MemoryMapEntry, MemoryType};
-use x86_64::structures::{Frame, PAGE_SIZE};
+use x86_64::{
+    align_down_to_page, align_up,
+    structures::{Frame, PAGE_SIZE},
+};
 
-use crate::memory::{align_down, align_up, FrameAllocator};
+use super::FrameAllocator;
 
 /// Length of a bitmap array that fills one page
 const BITMAP_LENGTH: usize = PAGE_SIZE / core::mem::size_of::<u64>();
@@ -98,8 +101,8 @@ impl BitmapFrameAllocator {
     pub fn set_ignored_area(&mut self, addr_start: usize, addr_end: usize) {
         // first make sure addresses are aligned to page boundaries
         log::trace!("blocking {addr_start:#X}-{addr_end:#X}");
-        let addr_start = align_down(addr_start, PAGE_SIZE);
-        let addr_end = align_down(addr_end, PAGE_SIZE);
+        let addr_start = align_down_to_page(addr_start);
+        let addr_end = align_down_to_page(addr_end);
 
         // keep track of frames skipped while finding correct memory region
         let mut frames_skipped = 0;

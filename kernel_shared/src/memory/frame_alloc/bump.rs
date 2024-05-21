@@ -1,6 +1,7 @@
 use multiboot::{MemoryMapEntry, MemoryType};
+use x86_64::structures::Frame;
 
-use super::super::{Frame, FrameAllocator};
+use super::FrameAllocator;
 
 /// Simple bump allocator for handing out free frames
 pub struct BumpFrameAllocator {

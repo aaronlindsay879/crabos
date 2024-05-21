@@ -1,6 +1,7 @@
 use core::ops::{Deref, DerefMut};
 
 pub use entry::EntryFlags;
+use kernel_shared::memory::frame_alloc::FrameAllocator;
 use multiboot::elf_symbols::SectionFlags;
 use x86_64::{
     registers::CR3,
@@ -8,7 +9,7 @@ use x86_64::{
 };
 
 use self::{mapper::Mapper, temporary_page::TemporaryPage};
-use super::{FrameAllocator, PAGE_SIZE};
+use super::PAGE_SIZE;
 use crate::BootInfo;
 
 mod entry;

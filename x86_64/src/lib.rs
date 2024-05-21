@@ -3,7 +3,7 @@
 
 use core::{arch::asm, marker::PhantomData};
 
-use structures::{GlobalDescriptorTable, InterruptDescriptorTable};
+use structures::{GlobalDescriptorTable, InterruptDescriptorTable, PAGE_SIZE};
 
 pub mod interrupts;
 pub mod io;
@@ -109,4 +109,34 @@ pub fn hlt_loop() -> ! {
     loop {
         unsafe { asm!("hlt") }
     }
+}
+
+/// Align downwards - returns the greatest _x_ with alignment `align`
+/// such that _x_ <= addr. `align` must be power of 2
+pub fn align_down(addr: usize, align: usize) -> usize {
+    if align.is_power_of_two() {
+        addr & !(align - 1)
+    } else if align == 0 {
+        addr
+    } else {
+        panic!("`align` must be power of two")
+    }
+}
+
+/// Align downwards - returns the greatest _x_ with alignment of page size
+/// such that _x_ <= addr. `align` must be power of 2
+pub fn align_down_to_page(addr: usize) -> usize {
+    align_down(addr, PAGE_SIZE)
+}
+
+/// Align upwards - returns the smallest _x_ with alignment `align`
+/// such that _x_ >= addr. `align` must be power of 2
+pub fn align_up(addr: usize, align: usize) -> usize {
+    align_down(addr + align - 1, align)
+}
+
+/// Align upwards - returns the smallest _x_ with alignment of page size
+/// such that _x_ >= addr. `align` must be power of 2
+pub fn align_up_to_page(addr: usize) -> usize {
+    align_up(addr, PAGE_SIZE)
 }

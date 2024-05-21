@@ -3,11 +3,12 @@ use core::{
     ops::{Index, IndexMut},
 };
 
+use kernel_shared::memory::frame_alloc::FrameAllocator;
+
 use super::{
     entry::{Entry, EntryFlags},
     ENTRY_COUNT,
 };
-use crate::memory::FrameAllocator;
 
 /// Pointer to active level 4 table
 pub const P4: *mut Table<Level4> = 0xFFFFFFFF_FFFFF000 as *mut _;

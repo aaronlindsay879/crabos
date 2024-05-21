@@ -62,6 +62,7 @@ dependencies = [
  "crabstd",
  "lazy_static",
  "log",
+ "multiboot",
  "x86_64",
 ]
 
