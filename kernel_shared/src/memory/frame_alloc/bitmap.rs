@@ -220,11 +220,11 @@ impl FrameAllocator for BitmapFrameAllocator {
             }
 
             // then find index into bitmaps & bit index for frame to deallocate
-            let frame_index =
-                bitmap_index + ((frame_addr.saturating_sub(region.base_addr as usize)) >> 18);
+            let frame_index = bitmap_index + ((frame_addr - region.base_addr as usize) >> 18);
             let bit_index = (frame_addr % 0x40000) >> 12;
 
             self.bitmaps[frame_index] &= !generate_mask(bit_index, bit_index + 1);
+            break;
         }
     }
 }

@@ -17,7 +17,7 @@ use kernel_shared::{
 };
 use multiboot::{elf_symbols::SectionFlags, prelude::*};
 use x86_64::{
-    align_up_to_page,
+    align_down_to_page, align_up_to_page,
     structures::{Frame, Page, PAGE_SIZE},
 };
 
@@ -47,6 +47,9 @@ extern "C" fn loader_main(addr: *const u32) {
     let (kernel_start, kernel_end) = (kernel.start as usize, kernel.end as usize);
     let (initrd_start, initrd_end) = (initrd.start as usize, initrd.end as usize);
 
+    log::trace!("{:#X}", initrd_end);
+    log::trace!("{:#X}", bootinfo_start);
+
     // find first free phys address and initialise frame allocator
     let first_free_addr =
         align_up_to_page(bootinfo_end.max(loader_end).max(kernel_end).max(initrd_end));
@@ -66,13 +69,29 @@ extern "C" fn loader_main(addr: *const u32) {
     let mut table = unsafe { InactivePageTable::new(table_frame) };
 
     // make sure to map loader, initrd and bootinfo
-    identity_map(
-        "bootinfo",
-        &mut frame_alloc,
-        &mut table,
-        bootinfo_start,
-        bootinfo_end,
+    let start_page = Page::containing_address(0);
+    let end_page = Page::containing_address(bootinfo_end - bootinfo_start);
+
+    let start_frame = Frame::containing_address(bootinfo_start);
+    let end_frame = Frame::containing_address(bootinfo_end);
+
+    log::trace!(
+        "mapping bootinfo at {:#X}-{:#X}",
+        start_page.start_address(),
+        end_page.start_address()
     );
+
+    for (page, frame) in Page::range_inclusive(start_page, end_page)
+        .zip(Frame::range_inclusive(start_frame, end_frame))
+    {
+        table.map_to(
+            page,
+            frame,
+            EntryFlags::PRESENT | EntryFlags::WRITABLE,
+            &mut frame_alloc,
+        );
+    }
+
     identity_map(
         "initrd",
         &mut frame_alloc,
@@ -193,7 +212,7 @@ extern "C" fn loader_main(addr: *const u32) {
             "mov rsp, 0xFFFFFFFFFFFFFFFF",
             "jmp {}",
             in(reg) entrypoint,
-            in("rdi") addr,
+            in("rdi") addr as usize - align_down_to_page(addr as usize),
             in("rsi") loader_start,
             in("rdx") loader_end
         )
@@ -360,5 +379,6 @@ multiboot_header! {
             height: Value(1080),
             depth: NoPreference
         },
+        ModuleAlignment,
     ]
 }

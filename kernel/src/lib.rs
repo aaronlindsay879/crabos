@@ -70,8 +70,8 @@ pub extern "C" fn kernel_main(addr: *const u32, loader_start: usize, loader_end:
 
         (
             init(&bootinfo, loader_start, loader_end),
-            bootinfo.addr,
-            bootinfo.addr + bootinfo.total_size,
+            addr as usize,
+            addr as usize + bootinfo.total_size,
         )
     };
 

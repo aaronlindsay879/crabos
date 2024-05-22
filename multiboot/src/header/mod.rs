@@ -4,11 +4,13 @@ pub mod console_flags;
 pub mod end;
 pub mod framebuffer;
 pub mod information_request;
+pub mod module_alignment;
 
 pub use console_flags::ConsoleFlags;
 pub use end::End;
 pub use framebuffer::Framebuffer;
 pub use information_request::InformationRequest;
+pub use module_alignment::ModuleAlignment;
 
 /// Essentially an [Option] implementation with const unwrap method
 #[derive(Copy, Clone)]
