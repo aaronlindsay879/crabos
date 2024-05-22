@@ -1,7 +1,7 @@
 use core::fmt::Write;
 
 use bitflags::bitflags;
-use x86_64::io::{inb, outb};
+use x86_64::port::Port;
 
 pub mod ports {
     pub const COM1: u16 = 0x3F8;
@@ -41,27 +41,27 @@ impl SerialPort {
     pub fn init(&mut self) {
         unsafe {
             // disable interrupts
-            outb(self.port_int_en(), 0x00);
+            self.port_int_en().write(0x00);
 
             // enable DLAB
-            outb(self.port_line_ctrl(), 0x80);
+            self.port_line_ctrl().write(0x80);
 
             // Set divisor to 3 (38400 baud)
-            outb(self.port_data(), 0x03);
-            outb(self.port_int_en(), 0x00);
+            self.port_data().write(0x03);
+            self.port_int_en().write(0x00);
 
             // disable DLAB and set data word length to 8 bits
-            outb(self.port_line_ctrl(), 0x03);
+            self.port_line_ctrl().write(0x03);
 
             // enable FIFO, clear queues, and set interrupt watermark at 14 bytes
-            outb(self.port_fifo_control(), 0xC7);
+            self.port_fifo_control().write(0xC7);
 
             // mark data terminal ready, signal request to send
             // and enabkle output #2 (interrupt line)
-            outb(self.port_modem_ctrl(), 0x0B);
+            self.port_modem_ctrl().write(0x0B);
 
             // enable interrupts
-            outb(self.port_int_en(), 0x01);
+            self.port_int_en().write(0x01);
         }
     }
 
@@ -71,52 +71,52 @@ impl SerialPort {
             match data {
                 8 | 0x7F => {
                     wait_for!(self => LINE_STATUS_EMPTY);
-                    outb(self.port_data(), 8);
+                    self.port_data().write(8);
                     wait_for!(self => LINE_STATUS_EMPTY);
-                    outb(self.port_data(), b' ');
+                    self.port_data().write(b' ');
                     wait_for!(self => LINE_STATUS_EMPTY);
-                    outb(self.port_data(), 8);
+                    self.port_data().write(8);
                 }
                 _ => {
                     wait_for!(self => LINE_STATUS_EMPTY);
-                    outb(self.port_data(), data);
+                    self.port_data().write(data);
                 }
             }
         }
     }
 
     /// Data port, R+W
-    const fn port_data(&self) -> u16 {
-        self.0
+    const fn port_data(&self) -> Port<u8> {
+        Port::new(self.0)
     }
 
     /// Interrupt enable port, W
-    const fn port_int_en(&self) -> u16 {
-        self.0 + 1
+    const fn port_int_en(&self) -> Port<u8> {
+        Port::new(self.0 + 1)
     }
 
     /// Fifo control port, W
-    const fn port_fifo_control(&self) -> u16 {
-        self.0 + 2
+    const fn port_fifo_control(&self) -> Port<u8> {
+        Port::new(self.0 + 2)
     }
 
     /// Line control port, W
-    const fn port_line_ctrl(&self) -> u16 {
-        self.0 + 3
+    const fn port_line_ctrl(&self) -> Port<u8> {
+        Port::new(self.0 + 3)
     }
 
     /// Modem control port, W
-    const fn port_modem_ctrl(&self) -> u16 {
-        self.0 + 4
+    const fn port_modem_ctrl(&self) -> Port<u8> {
+        Port::new(self.0 + 4)
     }
 
     /// Line status port, R
-    const fn port_line_status(&self) -> u16 {
-        self.0 + 5
+    const fn port_line_status(&self) -> Port<u8> {
+        Port::new(self.0 + 5)
     }
 
     fn line_status(&self) -> LineStatusFlags {
-        unsafe { LineStatusFlags::from_bits_truncate(inb(self.port_line_status())) }
+        unsafe { LineStatusFlags::from_bits_truncate(self.port_line_status().read()) }
     }
 }
 

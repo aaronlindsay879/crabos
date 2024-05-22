@@ -6,7 +6,7 @@ use core::{arch::asm, marker::PhantomData};
 use structures::{GlobalDescriptorTable, InterruptDescriptorTable, PAGE_SIZE};
 
 pub mod interrupts;
-pub mod io;
+pub mod port;
 pub mod registers;
 pub mod segment_selector;
 pub mod structures;
