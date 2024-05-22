@@ -1,15 +1,30 @@
 use core::{arch::asm, fmt::Debug};
 
 use bitflags::bitflags;
+use crabstd::mutex::Mutex;
 use lazy_static::lazy_static;
 use x86_64::{
     registers::CR2,
     structures::{ExceptionStackFrame, InterruptDescriptorTable},
 };
 
-use crate::{gdt, println};
+use self::pic::ChainedPics;
+use crate::{gdt, print, println};
 
+mod pic;
 mod syscall;
+
+pub const PIC_1_OFFSET: u8 = 32;
+pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
+
+pub static PICS: Mutex<ChainedPics> =
+    Mutex::new(unsafe { ChainedPics::new(PIC_1_OFFSET, PIC_2_OFFSET) });
+
+#[derive(Debug, Clone, Copy)]
+#[repr(u8)]
+pub enum InterruptIndex {
+    Timer = PIC_1_OFFSET,
+}
 
 lazy_static! {
     static ref IDT: InterruptDescriptorTable = {
@@ -27,6 +42,7 @@ lazy_static! {
                 .set_ist_index(gdt::DOUBLE_FAULT_IST_INDEX);
         }
 
+        idt[InterruptIndex::Timer as u8].set(timer_interrupt_handler);
         idt[0x80].set(syscall_handler);
 
         idt
@@ -137,11 +153,28 @@ extern "x86-interrupt" fn syscall_handler(_stack_frame: ExceptionStackFrame) {
     }
 }
 
+extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: ExceptionStackFrame) {
+    print!(".");
+
+    unsafe {
+        PICS.lock()
+            .notify_end_of_interrupt(InterruptIndex::Timer as u8);
+    }
+}
+
 pub fn init() {
     log::trace!("initialising interrupts");
 
     IDT.load();
     log::trace!("\t* loaded IDT");
+
+    unsafe {
+        PICS.lock().init();
+    }
+    log::trace!("\t* initialised PIC");
+
+    x86_64::interrupts::enable_interrupts();
+    log::trace!("\t* enabled interrupts");
 
     log::trace!("interrupts initialised");
 }

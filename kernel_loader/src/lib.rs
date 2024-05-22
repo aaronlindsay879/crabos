@@ -23,6 +23,22 @@ use x86_64::{
 
 use crate::elf::ElfFile;
 
+/// Simple dummy allocator to stop clippy complaining
+/// was easier to do this than figure out why clippy wanted a global alloc for each crate
+struct DummyAlloc;
+
+unsafe impl core::alloc::GlobalAlloc for DummyAlloc {
+    unsafe fn alloc(&self, _layout: core::alloc::Layout) -> *mut u8 {
+        unreachable!()
+    }
+
+    unsafe fn dealloc(&self, _ptr: *mut u8, _layout: core::alloc::Layout) {
+        unreachable!()
+    }
+}
+
+#[global_allocator]
+static DUMMY_ALLOC: DummyAlloc = DummyAlloc;
 static LOGGER: Logger = Logger::new(log::LevelFilter::Trace);
 
 #[panic_handler]
@@ -33,7 +49,7 @@ fn panic(info: &PanicInfo) -> ! {
 
 #[no_mangle]
 extern "C" fn loader_main(addr: *const u32) {
-    LOGGER.init();
+    LOGGER.init().expect("failed to init logger");
     log::trace!("jumped to loader_main!");
 
     // find info about kernel loader, and kernel/initrd modules
@@ -185,7 +201,11 @@ extern "C" fn loader_main(addr: *const u32) {
     // finally switch to new table
     let entrypoint = kernel_elf.entrypoint();
 
+    // just want to drop to make sure bootinfo can't be used from here onwards,
+    // since it points to invalid data after changing page table
+    #[allow(clippy::drop_non_drop)]
     drop(bootinfo);
+
     let mut active_table = unsafe { ActivePageTable::new() };
     active_table.switch(table);
 
