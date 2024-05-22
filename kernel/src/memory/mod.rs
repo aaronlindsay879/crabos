@@ -1,6 +1,6 @@
 mod heap_allocator;
 
-use alloc::{boxed::Box, vec::Vec};
+use alloc::boxed::Box;
 use core::sync::atomic::{AtomicBool, Ordering};
 
 use kernel_shared::memory::{
@@ -56,6 +56,6 @@ pub unsafe fn free_region(
     let end_page = Page::containing_address(addr_end);
 
     for page in Page::range_inclusive(start_page, end_page) {
-        active_table.unmap(page, frame_alloc, false);
+        active_table.unmap(page, frame_alloc, true);
     }
 }
