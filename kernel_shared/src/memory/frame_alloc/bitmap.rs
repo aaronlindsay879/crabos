@@ -19,20 +19,40 @@ pub struct BitmapFrameAllocator {
 }
 
 impl BitmapFrameAllocator {
+    pub fn frames_needed(memory_regions: &'static [MemoryMapEntry]) -> usize {
+        memory_regions
+            .iter()
+            .filter(|region| region.mem_type == MemoryType::RAM)
+            .map(|region| (region.length as usize).div_ceil(PAGE_SIZE * FRAMES_PER_BITMAP))
+            .sum()
+    }
+
+    /// Creates a bitmap allocator from a given address, assuming it's already initialised
+    ///
+    /// # Safety
+    /// `address` must point to a valid bitmap array
+    pub unsafe fn from_address(memory_regions: &'static [MemoryMapEntry], address: usize) -> Self {
+        let frames_needed = Self::frames_needed(memory_regions);
+
+        let bitmaps: &mut [u64] =
+            core::slice::from_raw_parts_mut(address as *mut u64, frames_needed * BITMAP_LENGTH);
+
+        Self {
+            memory_regions,
+            bitmaps,
+        }
+    }
+
     /// Returns a new bitmap allocator, and the range of frames that need to be identity mapped
     pub fn new(
         start_addr: usize,
         memory_regions: &'static [MemoryMapEntry],
     ) -> (Self, (Frame, Frame)) {
         // first figure out how many frames we need for allocator, with at least one frame per region
-        let frames_needed: usize = memory_regions
-            .iter()
-            .filter(|region| region.mem_type == MemoryType::RAM)
-            .map(|region| (region.length as usize).div_ceil(PAGE_SIZE * FRAMES_PER_BITMAP))
-            .sum();
+        let frames_needed = Self::frames_needed(memory_regions);
 
         // now we "steal" that many frames starting from `start_addr`
-        let bitmaps = unsafe {
+        let bitmaps: &mut [u64] = unsafe {
             // zero memory and return a slice for it
             core::ptr::write_bytes(start_addr as *mut u64, 0, frames_needed * BITMAP_LENGTH);
             core::slice::from_raw_parts_mut(start_addr as *mut u64, frames_needed * BITMAP_LENGTH)
@@ -64,18 +84,8 @@ impl BitmapFrameAllocator {
                     let valid_frames = frames - index * 64;
                     let mask = generate_mask(valid_frames, 64);
 
-                    log::trace!(
-                        "applying mask {:064b} to alloc frame with index {}",
-                        mask,
-                        bitmap_index + index
-                    );
-
                     bitmap_alloc.bitmaps[bitmap_index + index] |= mask;
 
-                    log::trace!(
-                        "fully masking in range {:?}",
-                        bitmap_index + index + 1..align_up(bitmap_index + index, BITMAP_LENGTH)
-                    );
                     for bitmap in bitmap_alloc.bitmaps
                         [bitmap_index + index + 1..align_up(bitmap_index + index, BITMAP_LENGTH)]
                         .iter_mut()
@@ -100,7 +110,6 @@ impl BitmapFrameAllocator {
     /// assuming `addr_start` and `addr_end` lie in the same memory map region
     pub fn set_ignored_area(&mut self, addr_start: usize, addr_end: usize) {
         // first make sure addresses are aligned to page boundaries
-        log::trace!("blocking {addr_start:#X}-{addr_end:#X}");
         let addr_start = align_down_to_page(addr_start);
         let addr_end = align_down_to_page(addr_end);
 

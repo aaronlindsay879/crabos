@@ -7,10 +7,6 @@ ENTRY(kernel_main)
 SECTIONS
 {
 	. = 0xffffffff80000000;
- 
-	.boot BLOCK(4K) : ALIGN(4K) {
-		KEEP(*(.multiboot))
-	}
 
 	.text BLOCK(4K) : ALIGN(4K)
 	{
@@ -30,6 +26,11 @@ SECTIONS
 	.data BLOCK(4K) : ALIGN(4K)
 	{
 		*(.data .data.*)
+	}
+
+	.eh_frame BLOCK(4K) : ALIGN(4K)
+	{
+		*(.eh_frame)
 	}
  
 	.bss BLOCK(4K) : ALIGN(4K)

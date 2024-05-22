@@ -1,7 +1,9 @@
 #![no_std]
-#![feature(const_mut_refs)]
+#![feature(const_mut_refs, const_trait_impl, effects)]
 
-use core::{ops::DerefMut, panic::PanicInfo};
+mod elf;
+
+use core::{arch::asm, ffi::CStr, ops::DerefMut, panic::PanicInfo};
 
 use kernel_shared::{
     logger::Logger,
@@ -13,11 +15,13 @@ use kernel_shared::{
         },
     },
 };
-use multiboot::prelude::*;
+use multiboot::{elf_symbols::SectionFlags, prelude::*};
 use x86_64::{
     align_up_to_page,
-    structures::{Frame, Page},
+    structures::{Frame, Page, PAGE_SIZE},
 };
+
+use crate::elf::ElfFile;
 
 static LOGGER: Logger = Logger::new(log::LevelFilter::Trace);
 
@@ -61,8 +65,28 @@ extern "C" fn loader_main(addr: *const u32) {
         .expect("failed to allocate a frame for level 4 table");
     let mut table = unsafe { InactivePageTable::new(table_frame) };
 
-    // make sure to map loader in new table
-    map_loader(&mut frame_alloc, &mut table, loader_start, loader_end);
+    // make sure to map loader, initrd and bootinfo
+    identity_map(
+        "bootinfo",
+        &mut frame_alloc,
+        &mut table,
+        bootinfo_start,
+        bootinfo_end,
+    );
+    identity_map(
+        "initrd",
+        &mut frame_alloc,
+        &mut table,
+        initrd_start,
+        initrd_end,
+    );
+    identity_map(
+        "loader",
+        &mut frame_alloc,
+        &mut table,
+        loader_start,
+        loader_end,
+    );
 
     // then map frame allocator and frame buffer
     map_frame_allocator(&mut frame_alloc, &mut table, alloc_start, alloc_end);
@@ -75,23 +99,110 @@ extern "C" fn loader_main(addr: *const u32) {
         (framebuffer.pitch * framebuffer.height) as usize,
     );
 
-    // TODO: parse kernel module and map at 0xffffffff80000000
+    let elf_data = unsafe {
+        core::slice::from_raw_parts(kernel_start as *const u8, kernel_end - kernel_start)
+    };
+    let kernel_elf = ElfFile::new(elf_data).expect("kernel was not a valid ELF file.");
+
+    // log::trace!("{:#X}", unsafe { *(0x169048 as *const usize) });
+    // x86_64::hlt_loop();
+
+    let string_header = kernel_elf.string_header();
+
+    for kernel_section in kernel_elf.section_headers() {
+        // only map sections that need allocating
+        if !kernel_section.flags.contains(SectionFlags::ALLOC) {
+            continue;
+        }
+
+        // ensure section is aligned to page
+        assert!(
+            kernel_section.addr as usize % PAGE_SIZE == 0,
+            "sections need to be page aligned, addr {:#X}",
+            kernel_section.addr
+        );
+
+        let flags = EntryFlags::from_elf_section_flags(kernel_section);
+
+        let start_frame = Frame::containing_address(kernel_section.offset as usize + kernel_start);
+        let end_frame = Frame::containing_address(
+            (kernel_section.offset + kernel_section.size - 1) as usize + kernel_start,
+        );
+
+        let start_page = Page::containing_address(kernel_section.addr as usize);
+        let end_page =
+            Page::containing_address((kernel_section.addr + kernel_section.size - 1) as usize);
+
+        let location = (string_header.offset + kernel_start as u64) as *const i8;
+        let name = unsafe { CStr::from_ptr(location.add(kernel_section.name as usize)) };
+
+        log::trace!(
+            "mapping kernel section {:?} at {:#X}-{:#X} with flags `{}`",
+            name,
+            start_page.start_address(),
+            end_page.start_address(),
+            flags
+        );
+
+        // if SHT_NOBITS, make sure to zero
+        if kernel_section.section_type == 8 {
+            unsafe {
+                core::slice::from_raw_parts_mut(
+                    start_frame.start_address() as *mut u8,
+                    kernel_section.size as usize,
+                )
+                .fill(0);
+            }
+        }
+
+        for (page, frame) in Page::range_inclusive(start_page, end_page)
+            .zip(Frame::range_inclusive(start_frame, end_frame))
+        {
+            table.map_to(page, frame, flags, &mut frame_alloc);
+        }
+    }
 
     map_heap(&mut frame_alloc, &mut table, kernel_shared::HEAP_SIZE);
     map_phys_memory(&mut frame_alloc, &mut table, &bootinfo.memory_map.unwrap());
 
+    // set up stack at final 16MiB of kernel space
+    log::trace!("setting up stack at {:#X}", usize::MAX);
+    let start_page = Page::containing_address(usize::MAX - 0x1000000 + 1);
+    let end_page = Page::containing_address(usize::MAX);
+
+    for page in Page::range_inclusive(start_page, end_page) {
+        table.map(
+            page,
+            EntryFlags::PRESENT | EntryFlags::WRITABLE,
+            &mut frame_alloc,
+        );
+    }
+
     // finally switch to new table
+    let entrypoint = kernel_elf.entrypoint();
+
     drop(bootinfo);
     let mut active_table = unsafe { ActivePageTable::new() };
     active_table.switch(table);
 
     log::trace!("switched active table!");
 
-    x86_64::hlt_loop();
+    log::trace!("jumping to kernel at {entrypoint:#X}");
+    unsafe {
+        asm!(
+            "mov rsp, 0xFFFFFFFFFFFFFFFF",
+            "jmp {}",
+            in(reg) entrypoint,
+            in("rdi") addr,
+            in("rsi") loader_start,
+            in("rdx") loader_end
+        )
+    }
 }
 
 /// Identity maps loader
-fn map_loader<A: FrameAllocator, T: DerefMut<Target = Mapper>>(
+fn identity_map<A: FrameAllocator, T: DerefMut<Target = Mapper>>(
+    log_str: &'static str,
     alloc: &mut A,
     table: &mut T,
     start_addr: usize,
@@ -99,6 +210,12 @@ fn map_loader<A: FrameAllocator, T: DerefMut<Target = Mapper>>(
 ) {
     let start_frame = Frame::containing_address(start_addr);
     let end_frame = Frame::containing_address(end_addr);
+
+    log::trace!(
+        "mapping {log_str} at {:#X}-{:#X}",
+        start_frame.start_address(),
+        end_frame.start_address()
+    );
 
     for frame in Frame::range_inclusive(start_frame, end_frame) {
         table.identity_map(frame, EntryFlags::PRESENT | EntryFlags::WRITABLE, alloc);

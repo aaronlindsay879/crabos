@@ -1,10 +1,10 @@
 use alloc::alloc::GlobalAlloc;
 use core::sync::atomic::{AtomicUsize, Ordering};
 
+use kernel_shared::HEAP_SIZE;
 use x86_64::align_up;
 
-pub const HEAP_START: usize = 0x40000000;
-pub const HEAP_SIZE: usize = 0x400_000; //100 * 1024; // 100 KiB
+pub const HEAP_START: usize = 0xFFFFFFFF20000000;
 
 /// A simple allocator that allocates memory linearly and ignores freed memory.
 pub struct BumpAllocator {

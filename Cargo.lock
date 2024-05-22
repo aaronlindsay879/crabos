@@ -48,7 +48,9 @@ dependencies = [
 name = "kernel_loader"
 version = "0.1.0"
 dependencies = [
+ "crabstd",
  "kernel_shared",
+ "lazy_static",
  "log",
  "multiboot",
  "x86_64",

@@ -40,10 +40,10 @@ $(ISO_FILE): $(BIN_FILE) $(LOADER_FILE) $(INITRD_FILE) $(wildcard $(GRUB_FILES)/
 $(INITRD_FILE): generate_initrd.py
 	python generate_initrd.py $(INITRD_FILE)
 
-$(BIN_FILE): $(RUST_SRC_FILES)
+$(BIN_FILE): $(RUST_SRC_FILES) kernel/layout.ld
 	cargo build --release --package crabos
 	mkdir -p target/isofiles/boot
-	ld -n --gc-sections --no-warn-rwx-segment \
+	ld -n --no-warn-rwx-segment \
 		-Tkernel/layout.ld -o $(BIN_FILE) \
 		$(LIB_FILE)
 

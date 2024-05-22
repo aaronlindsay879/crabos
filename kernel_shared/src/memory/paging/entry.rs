@@ -1,3 +1,5 @@
+use core::fmt::Display;
+
 use bitflags::bitflags;
 use multiboot::elf_symbols::{ElfSectionHeader, SectionFlags};
 use x86_64::structures::Frame;
@@ -34,6 +36,16 @@ impl EntryFlags {
         }
 
         flags
+    }
+}
+
+impl Display for EntryFlags {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        for string in self.iter_names().map(|(a, _)| a).intersperse(" | ") {
+            f.write_str(string)?;
+        }
+
+        Ok(())
     }
 }
 

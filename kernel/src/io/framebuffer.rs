@@ -66,7 +66,7 @@ impl FrameBufferWriter {
     pub fn from_framebuffer(info: FramebufferInfo) -> Self {
         let buffer = unsafe {
             core::slice::from_raw_parts_mut(
-                info.buffer_addr as *mut _,
+                0xFFFFFFFF40000000 as *mut _,
                 (info.pitch * info.height) as usize,
             )
         };

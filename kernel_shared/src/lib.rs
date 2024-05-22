@@ -1,4 +1,5 @@
 #![no_std]
+#![feature(iter_intersperse)]
 
 pub mod logger;
 pub mod memory;
