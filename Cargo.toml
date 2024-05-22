@@ -3,7 +3,7 @@ members = [
     "crabstd",
     "drivers/fs/initrd",
     "drivers/storage/ram",
-    "kernel",
+    "kernel", "kernel_loader", "kernel_shared",
     "multiboot",
     "x86_64",
 ]

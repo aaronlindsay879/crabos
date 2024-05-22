@@ -22,26 +22,28 @@ use core::{
 
 use crabstd::{fs::File, mutex::Mutex};
 use initrd::Initrd;
-use multiboot::prelude::*;
+use kernel_shared::{
+    logger::Logger,
+    memory::{frame_alloc::bitmap::BitmapFrameAllocator, paging::active_table::ActivePageTable},
+    serial_println,
+};
 use ram::Ram;
 
-use crate::{
-    io::{Writer, WRITER},
-    logger::LOGGER,
-};
+use crate::io::{Writer, WRITER};
 
 mod gdt;
 mod interrupts;
 mod io;
-mod logger;
 mod memory;
-mod serial;
+
+static LOGGER: Logger = Logger::new(log::LevelFilter::Trace);
 
 pub const MODULE_COUNT: usize = 4;
 pub type BootInfo = multiboot::BootInfo<MODULE_COUNT>;
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
+    serial_println!("{}", info);
     log::error!("{}", info);
     println!("err: {}", info);
 
@@ -49,14 +51,38 @@ fn panic(info: &PanicInfo) -> ! {
 }
 
 static RAMFS: Mutex<Option<Initrd<Ram>>> = Mutex::new(None);
-const RAMFS_ADDR: usize = 0x00FF_0000_0000;
 
 // needed for false positive on `BootInfo::new`
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
-pub extern "C" fn kernel_main(addr: *const u32) {
-    let bootinfo = unsafe { BootInfo::new(addr) };
-    init(&bootinfo);
+pub extern "C" fn kernel_main(addr: *const u32, loader_start: usize, loader_end: usize) {
+    // bootinfo is only valid for this scope
+    let (
+        InitInfo {
+            mut frame_alloc,
+            mut active_table,
+            initrd_range: (initrd_start, initrd_end),
+        },
+        bootinfo_start,
+        bootinfo_end,
+    ) = {
+        let bootinfo = unsafe { BootInfo::new(addr) };
+
+        (
+            init(&bootinfo, loader_start, loader_end),
+            bootinfo.addr,
+            bootinfo.addr + bootinfo.total_size,
+        )
+    };
+
+    unsafe {
+        memory::free_region(
+            &mut active_table,
+            &mut frame_alloc,
+            bootinfo_start,
+            bootinfo_end,
+        )
+    }
 
     fn read_file(path: &str) -> Option<String> {
         let mut buf = [0; 16384];
@@ -85,10 +111,29 @@ pub extern "C" fn kernel_main(addr: *const u32) {
         "reading file `ramfs//big`:\n{:?}\n",
         read_file("ramfs//big")
     );
+
+    // finally free initrd info to remove all mappings in user-space
+    unsafe {
+        memory::free_region(
+            &mut active_table,
+            &mut frame_alloc,
+            initrd_start,
+            initrd_end,
+        )
+    }
+
+    x86_64::hlt_loop();
+}
+
+/// Struct representing information returned by [init]
+struct InitInfo {
+    frame_alloc: BitmapFrameAllocator,
+    active_table: ActivePageTable,
+    initrd_range: (usize, usize),
 }
 
 /// Initialises everything required for kernel
-fn init(bootinfo: &BootInfo) {
+fn init(bootinfo: &BootInfo, loader_start: usize, loader_end: usize) -> InitInfo {
     static INIT_CALLED: AtomicBool = AtomicBool::new(false);
 
     if INIT_CALLED.swap(true, Ordering::Relaxed) {
@@ -110,16 +155,15 @@ fn init(bootinfo: &BootInfo) {
         initrd.end
     );
 
-    log::trace!("{:#?}", bootinfo.memory_map.unwrap().entries);
-
-    memory::init(bootinfo, initrd);
+    let (frame_alloc, active_table) = memory::init(bootinfo, loader_start, loader_end);
 
     log::trace!("initialising stdio");
     *WRITER.lock().get_mut() =
         Some(Writer::from_bootinfo(bootinfo).expect("invalid framebuffer type"));
     log::trace!("stdio initialised");
 
-    *RAMFS.lock() = unsafe { Initrd::new_ram(RAMFS_ADDR, (initrd.end - initrd.start) as usize) };
+    *RAMFS.lock() =
+        unsafe { Initrd::new_ram(initrd.start as usize, (initrd.end - initrd.start) as usize) };
 
     if RAMFS.lock().is_none() {
         panic!("no ramfs driver loaded");
@@ -130,19 +174,10 @@ fn init(bootinfo: &BootInfo) {
     interrupts::init();
 
     log::trace!("kernel initialised");
-}
 
-multiboot_header! {
-    arch: 0,
-    tags: [
-        InformationRequest {
-            requests: &[ELF_SYMBOLS, MEMORY_MAP]
-        },
-        ConsoleFlags::all(),
-        Framebuffer {
-            width: Value(1920),
-            height: Value(1080),
-            depth: NoPreference
-        },
-    ]
+    InitInfo {
+        frame_alloc,
+        active_table,
+        initrd_range: (initrd.start as usize, initrd.end as usize),
+    }
 }

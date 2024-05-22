@@ -6,11 +6,14 @@
     const_ptr_write
 )]
 
+#[cfg(feature = "alloc")]
 extern crate alloc;
 
-pub mod cursor;
+#[cfg(feature = "alloc")]
 pub mod fs;
+#[cfg(feature = "alloc")]
+pub mod syscall;
+
+pub mod cursor;
 pub mod mutex;
 pub mod volatile;
-
-pub mod syscall;

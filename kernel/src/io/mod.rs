@@ -12,7 +12,6 @@ use self::{framebuffer::FrameBufferWriter, textbuffer::TextBufferWriter};
 use crate::BootInfo;
 
 pub mod framebuffer;
-pub mod serial;
 pub mod textbuffer;
 
 /// Stores some form of text writer

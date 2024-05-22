@@ -1,0 +1,18 @@
+[package]
+name = "kernel_loader"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["staticlib"]
+
+[dependencies]
+kernel_shared = { path = "../kernel_shared" }
+crabstd = { path = "../crabstd", default-features = false }
+x86_64 = { path = "../x86_64" }
+multiboot = { path = "../multiboot" }
+log = "0.4.21"
+
+[dependencies.lazy_static]
+version = "1.4.0"
+features = ["spin_no_std"]

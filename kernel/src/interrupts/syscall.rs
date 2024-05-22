@@ -51,6 +51,7 @@ macro_rules! syscall_table {
 }
 
 #[used]
+#[link_section = ".syscall_table"]
 pub(super) static SYSCALL_TABLE: [&(); 256] = syscall_table!(
     syscalls::NO_FUNCTION => no_function,
     syscalls::OPEN => open,
