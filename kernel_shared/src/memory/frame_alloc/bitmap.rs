@@ -95,7 +95,7 @@ impl BitmapFrameAllocator {
                 }
             }
 
-            bitmap_index += align_up(frames, BITMAP_LENGTH);
+            bitmap_index += align_up(frames / 64, BITMAP_LENGTH);
         }
 
         (bitmap_alloc, (frame_start, frame_end))
@@ -165,6 +165,8 @@ impl BitmapFrameAllocator {
                     *bitmap = !0;
                 }
             }
+
+            break;
         }
     }
 

@@ -26,7 +26,7 @@ ISO_FILE := target/crabos.iso
 run: $(ISO_FILE)
 	qemu-system-x86_64 \
 				-drive file=$(ISO_FILE),format=raw \
-				-display gtk,show-tabs=on \
+				-display gtk,show-tabs=on -m 256M \
 				-serial stdio
 
 clean: 

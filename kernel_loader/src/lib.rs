@@ -47,15 +47,14 @@ extern "C" fn loader_main(addr: *const u32) {
     let (kernel_start, kernel_end) = (kernel.start as usize, kernel.end as usize);
     let (initrd_start, initrd_end) = (initrd.start as usize, initrd.end as usize);
 
-    log::trace!("{:#X}", initrd_end);
-    log::trace!("{:#X}", bootinfo_start);
-
     // find first free phys address and initialise frame allocator
     let first_free_addr =
         align_up_to_page(bootinfo_end.max(loader_end).max(kernel_end).max(initrd_end));
 
     let (mut frame_alloc, (alloc_start, alloc_end)) =
         BitmapFrameAllocator::new(first_free_addr, bootinfo.memory_map.unwrap().entries);
+
+    log::trace!("initialised frame allocator");
 
     // dont overwrite any existing data
     frame_alloc.set_ignored_area(bootinfo_start, bootinfo_end);
