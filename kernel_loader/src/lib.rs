@@ -83,12 +83,7 @@ extern "C" fn loader_main(addr: *const u32) {
     for (page, frame) in Page::range_inclusive(start_page, end_page)
         .zip(Frame::range_inclusive(start_frame, end_frame))
     {
-        table.map_to(
-            page,
-            frame,
-            EntryFlags::PRESENT | EntryFlags::WRITABLE,
-            &mut frame_alloc,
-        );
+        table.map_to(page, frame, EntryFlags::WRITABLE, &mut frame_alloc);
     }
 
     identity_map(
@@ -121,10 +116,6 @@ extern "C" fn loader_main(addr: *const u32) {
         core::slice::from_raw_parts(kernel_start as *const u8, kernel_end - kernel_start)
     };
     let kernel_elf = ElfFile::new(elf_data).expect("kernel was not a valid ELF file.");
-
-    // log::trace!("{:#X}", unsafe { *(0x169048 as *const usize) });
-    // x86_64::hlt_loop();
-
     let string_header = kernel_elf.string_header();
 
     for kernel_section in kernel_elf.section_headers() {
@@ -142,14 +133,11 @@ extern "C" fn loader_main(addr: *const u32) {
 
         let flags = EntryFlags::from_elf_section_flags(kernel_section);
 
-        let start_frame = Frame::containing_address(kernel_section.offset as usize + kernel_start);
-        let end_frame = Frame::containing_address(
-            (kernel_section.offset + kernel_section.size - 1) as usize + kernel_start,
-        );
+        let start_phys = kernel_section.offset as usize + kernel_start;
+        let end_phys = (kernel_section.offset + kernel_section.size - 1) as usize + kernel_start;
 
-        let start_page = Page::containing_address(kernel_section.addr as usize);
-        let end_page =
-            Page::containing_address((kernel_section.addr + kernel_section.size - 1) as usize);
+        let start_virt = kernel_section.addr as usize;
+        let end_virt = (kernel_section.addr + kernel_section.size - 1) as usize;
 
         let location = (string_header.offset + kernel_start as u64) as *const i8;
         let name = unsafe { CStr::from_ptr(location.add(kernel_section.name as usize)) };
@@ -157,8 +145,8 @@ extern "C" fn loader_main(addr: *const u32) {
         log::trace!(
             "mapping kernel section {:?} at {:#X}-{:#X} with flags `{}`",
             name,
-            start_page.start_address(),
-            end_page.start_address(),
+            align_down_to_page(start_virt),
+            align_down_to_page(end_virt),
             flags
         );
 
@@ -166,18 +154,20 @@ extern "C" fn loader_main(addr: *const u32) {
         if kernel_section.section_type == 8 {
             unsafe {
                 core::slice::from_raw_parts_mut(
-                    start_frame.start_address() as *mut u8,
+                    align_down_to_page(start_phys) as *mut u8,
                     kernel_section.size as usize,
                 )
                 .fill(0);
             }
         }
 
-        for (page, frame) in Page::range_inclusive(start_page, end_page)
-            .zip(Frame::range_inclusive(start_frame, end_frame))
-        {
-            table.map_to(page, frame, flags, &mut frame_alloc);
-        }
+        table.map_range(
+            (start_phys, end_phys),
+            (start_virt, end_virt),
+            flags,
+            &mut frame_alloc,
+            true,
+        );
     }
 
     map_heap(&mut frame_alloc, &mut table, kernel_shared::HEAP_SIZE);
@@ -185,15 +175,11 @@ extern "C" fn loader_main(addr: *const u32) {
 
     // set up stack at final 16MiB of kernel space
     log::trace!("setting up stack at {:#X}", usize::MAX);
-    let start_page = Page::containing_address(usize::MAX - 0x1000000 + 1);
+    let start_page = Page::containing_address(usize::MAX - kernel_shared::STACK_SIZE + 1);
     let end_page = Page::containing_address(usize::MAX);
 
     for page in Page::range_inclusive(start_page, end_page) {
-        table.map(
-            page,
-            EntryFlags::PRESENT | EntryFlags::WRITABLE,
-            &mut frame_alloc,
-        );
+        table.map(page, EntryFlags::WRITABLE, &mut frame_alloc);
     }
 
     // finally switch to new table
@@ -236,7 +222,7 @@ fn identity_map<A: FrameAllocator, T: DerefMut<Target = Mapper>>(
     );
 
     for frame in Frame::range_inclusive(start_frame, end_frame) {
-        table.identity_map(frame, EntryFlags::PRESENT | EntryFlags::WRITABLE, alloc);
+        table.identity_map(frame, EntryFlags::WRITABLE, alloc);
     }
 }
 
@@ -249,19 +235,13 @@ fn map_frame_allocator<A: FrameAllocator, T: DerefMut<Target = Mapper>>(
 ) {
     log::trace!("mapping frame allocator");
 
-    let start_page = Page::containing_address(0xFFFFFFFF00000000);
-    let end_page = Page::containing_address(0xFFFFFFFF1FFFFFFF);
-
-    for (page, frame) in Page::range_inclusive(start_page, end_page)
-        .zip(Frame::range_inclusive(start_frame, end_frame))
-    {
-        table.map_to(
-            page,
-            frame,
-            EntryFlags::PRESENT | EntryFlags::WRITABLE | EntryFlags::NO_EXECUTE,
-            alloc,
-        );
-    }
+    table.map_range(
+        (start_frame.start_address(), end_frame.start_address()),
+        (0xFFFFFFFF00000000, 0xFFFFFFFF1FFFFFFF),
+        EntryFlags::WRITABLE | EntryFlags::NO_EXECUTE,
+        alloc,
+        true,
+    );
 }
 
 /// Maps framebuffer to 0xFFFFFFFF40000000
@@ -273,22 +253,13 @@ fn map_framebuffer<A: FrameAllocator, T: DerefMut<Target = Mapper>>(
 ) {
     log::trace!("mapping framebuffer");
 
-    let start_page = Page::containing_address(0xFFFFFFFF40000000);
-    let end_page = Page::containing_address(0xFFFFFFFF7FFFFFFF);
-
-    let start_frame = Frame::containing_address(start_addr);
-    let end_frame = Frame::containing_address(start_addr + size - 1);
-
-    for (page, frame) in Page::range_inclusive(start_page, end_page)
-        .zip(Frame::range_inclusive(start_frame, end_frame))
-    {
-        table.map_to(
-            page,
-            frame,
-            EntryFlags::PRESENT | EntryFlags::WRITABLE | EntryFlags::NO_EXECUTE,
-            alloc,
-        );
-    }
+    table.map_range(
+        (start_addr, start_addr + size - 1),
+        (0xFFFFFFFF40000000, 0xFFFFFFFF7FFFFFFF),
+        EntryFlags::WRITABLE | EntryFlags::NO_EXECUTE,
+        alloc,
+        true,
+    );
 }
 
 /// Maps heap to 0xFFFFFFFF20000000
@@ -305,11 +276,7 @@ fn map_heap<A: FrameAllocator, T: DerefMut<Target = Mapper>>(
     let end_page = Page::containing_address(end_addr);
 
     for page in Page::range_inclusive(start_page, end_page) {
-        table.map(
-            page,
-            EntryFlags::PRESENT | EntryFlags::WRITABLE | EntryFlags::NO_EXECUTE,
-            alloc,
-        );
+        table.map(page, EntryFlags::WRITABLE | EntryFlags::NO_EXECUTE, alloc);
     }
 }
 
@@ -327,22 +294,13 @@ fn map_phys_memory<A: FrameAllocator, T: DerefMut<Target = Mapper>>(
         .max()
         .unwrap() as usize;
 
-    let start_page = Page::containing_address(0xFFFF800000000000);
-    let end_page = Page::containing_address(0xFFFFBFFFFFFFFFFF);
-
-    let start_frame = Frame::containing_address(0);
-    let end_frame = Frame::containing_address(highest_address);
-
-    for (page, frame) in Page::range_inclusive(start_page, end_page)
-        .zip(Frame::range_inclusive(start_frame, end_frame))
-    {
-        table.map_to(
-            page,
-            frame,
-            EntryFlags::PRESENT | EntryFlags::WRITABLE | EntryFlags::NO_EXECUTE,
-            alloc,
-        );
-    }
+    table.map_range(
+        (0, highest_address),
+        (0xFFFF800000000000, 0xFFFFBFFFFFFFFFFF),
+        EntryFlags::WRITABLE | EntryFlags::NO_EXECUTE,
+        alloc,
+        true,
+    );
 }
 
 /// Finds where loader lies in physical memory

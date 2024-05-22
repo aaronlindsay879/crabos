@@ -1,7 +1,13 @@
 use crate::VirtualAddress;
 
-/// Size of a page in bytes
-pub const PAGE_SIZE: usize = 4096;
+/// Size of a normal page in bytes
+pub const PAGE_SIZE: usize = 0x1000;
+
+/// Size of a huge L2 page in bytes
+pub const HUGE_L2_PAGE_SIZE: usize = 0x200000;
+
+/// Size of a huge L3 page in bytes
+pub const HUGE_L3_PAGE_SIZE: usize = 0x40000000;
 
 /// Similar to [crate::memory::Frame] but for virtual memory
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]

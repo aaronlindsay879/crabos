@@ -1,8 +1,8 @@
 use core::ptr::NonNull;
 
 use x86_64::{
-    invalidate_address,
-    structures::{Frame, Page, PAGE_SIZE},
+    align_down_to_page, align_up, invalidate_address,
+    structures::{Frame, Page, HUGE_L2_PAGE_SIZE, HUGE_L3_PAGE_SIZE, PAGE_SIZE},
     PhysicalAddress, VirtualAddress,
 };
 
@@ -106,6 +106,42 @@ impl Mapper {
         p1[page.p1_index()].set(frame, flags | EntryFlags::PRESENT);
     }
 
+    /// Maps a given page to a given frame, using the provided flags and a 2MiB page entry
+    pub fn map_to_huge_l2<A: FrameAllocator>(
+        &mut self,
+        page: Page,
+        frame: Frame,
+        flags: EntryFlags,
+        allocator: &mut A,
+    ) {
+        let p4 = self.p4_mut();
+        let p3 = p4.next_table_create(page.p4_index(), allocator);
+        let p2 = p3.next_table_create(page.p3_index(), allocator);
+
+        assert_eq!(page.p1_index(), 0);
+        assert!(p2[page.p2_index()].is_unused());
+
+        p2[page.p2_index()].set(frame, flags | EntryFlags::PRESENT | EntryFlags::HUGE_PAGE);
+    }
+
+    /// Maps a given page to a given frame, using the provided flags and a 1GiB page entry
+    pub fn map_to_huge_l3<A: FrameAllocator>(
+        &mut self,
+        page: Page,
+        frame: Frame,
+        flags: EntryFlags,
+        allocator: &mut A,
+    ) {
+        let p4 = self.p4_mut();
+        let p3 = p4.next_table_create(page.p4_index(), allocator);
+
+        assert_eq!(page.p1_index(), 0);
+        assert_eq!(page.p2_index(), 0);
+        assert!(p3[page.p3_index()].is_unused());
+
+        p3[page.p3_index()].set(frame, flags | EntryFlags::PRESENT | EntryFlags::HUGE_PAGE);
+    }
+
     /// Maps a given page to any available frame, using the provided flags
     pub fn map<A: FrameAllocator>(&mut self, page: Page, flags: EntryFlags, allocator: &mut A) {
         let frame = allocator.allocate_frame().expect("out of memory");
@@ -121,6 +157,74 @@ impl Mapper {
     ) {
         let page = Page::containing_address(frame.start_address());
         self.map_to(page, frame, flags, allocator)
+    }
+
+    /// Maps a range of addresses. `use_huge_tables` should be used carefully since they can not currently be unmapped
+    pub fn map_range<A: FrameAllocator>(
+        &mut self,
+        phys_range: (usize, usize),
+        virt_range: (usize, usize),
+        flags: EntryFlags,
+        allocator: &mut A,
+        use_huge_tables: bool,
+    ) {
+        // first make sure to align to pages
+        let start_phys = align_down_to_page(phys_range.0);
+        let end_phys = align_down_to_page(phys_range.1);
+
+        let start_virt = align_down_to_page(virt_range.0);
+        let end_virt = align_down_to_page(virt_range.1);
+
+        // check how addresses are aligned relative to each other to check if huge tables are even possible
+        let huge_l3_possible =
+            use_huge_tables && is_aligned(start_virt - start_phys, HUGE_L3_PAGE_SIZE);
+        let huge_l2_possible =
+            use_huge_tables && is_aligned(start_virt - start_phys, HUGE_L2_PAGE_SIZE);
+
+        let to_map = (end_phys - start_phys).min(start_virt - end_virt);
+        let mut mapped = 0;
+
+        while mapped <= to_map {
+            if huge_l3_possible
+                && to_map - mapped >= HUGE_L3_PAGE_SIZE
+                && is_aligned(start_phys + mapped, HUGE_L3_PAGE_SIZE)
+                && is_aligned(start_virt + mapped, HUGE_L3_PAGE_SIZE)
+            {
+                // if need to map more than HUGE_L3_PAGE_SIZE and addresses are aligned, map a 1GiB page
+                self.map_to_huge_l3(
+                    Page::containing_address(start_virt + mapped),
+                    Frame::containing_address(start_phys + mapped),
+                    flags,
+                    allocator,
+                );
+
+                mapped += HUGE_L3_PAGE_SIZE;
+            } else if huge_l2_possible
+                && to_map - mapped >= HUGE_L2_PAGE_SIZE
+                && is_aligned(start_phys + mapped, HUGE_L2_PAGE_SIZE)
+                && is_aligned(start_virt + mapped, HUGE_L2_PAGE_SIZE)
+            {
+                // then repeat for 2MiB page
+                self.map_to_huge_l2(
+                    Page::containing_address(start_virt + mapped),
+                    Frame::containing_address(start_phys + mapped),
+                    flags,
+                    allocator,
+                );
+
+                mapped += HUGE_L2_PAGE_SIZE;
+            } else {
+                // otherwise just map a normal 4KiB page
+                self.map_to(
+                    Page::containing_address(start_virt + mapped),
+                    Frame::containing_address(start_phys + mapped),
+                    flags,
+                    allocator,
+                );
+
+                mapped += PAGE_SIZE;
+            }
+        }
     }
 
     /// Unmaps a given page
@@ -178,4 +282,8 @@ impl Mapper {
             }
         }
     }
+}
+
+fn is_aligned(addr: usize, alignment: usize) -> bool {
+    align_up(addr, alignment) == addr
 }
